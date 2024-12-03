@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static ic.matrix.IcMatrixTestHelper.measureTimeMillis;
+import static ic.matrix.util.IcMatrixTestHelper.measureTimeMillis;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

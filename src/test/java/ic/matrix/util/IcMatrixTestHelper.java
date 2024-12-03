@@ -1,4 +1,4 @@
-package ic.matrix;
+package ic.matrix.util;
 
 import java.util.function.Supplier;
 
