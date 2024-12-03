@@ -44,20 +44,12 @@ public class ZMatrixAc {
                     int col = cols[idx];
                     float re = res[idx];
                     float im = ims[idx];
-                    switch (kRow[col]) {
-                        case 1: {
-                            real += re;
-                            imag += im;
-                            break;
-                        }
-                        case -1: {
-                            real -= re;
-                            imag -= im;
-                            break;
-                        }
-                        default: {
-                            break;
-                        }
+                    if (kRow[col] == 1) {
+                        real += re;
+                        imag += im;
+                    } else if (kRow[col] == -1) {
+                        real -= re;
+                        imag -= im;
                     }
                 }
                 out.set(k, z, real, imag);

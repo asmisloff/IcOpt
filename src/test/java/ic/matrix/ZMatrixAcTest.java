@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+import static ic.matrix.IcMatrixTestHelper.measureTimeMillis;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -67,14 +68,6 @@ class ZMatrixAcTest {
         System.out.printf("ejml: %.4f; custom: %.4f", ejmlTime, customTime);
     }
 
-    private double measureTimeMillis(Runnable action, int n) {
-        long t0 = System.nanoTime();
-        for (int i = 0; i < n; i++) {
-            action.run();
-        }
-        return 1e-6 * (System.nanoTime() - t0) / n;
-    }
-
     private CMatrixRMaj randomSymmetricalMatrix(int size, int qnz) {
         CMatrixRMaj m = new CMatrixRMaj(size, size);
         ThreadLocalRandom tlr = ThreadLocalRandom.current();
@@ -118,15 +111,5 @@ class ZMatrixAcTest {
             }
         }
         return ((double) cnt) / m.numRows;
-    }
-
-    private void print(CMatrixRMaj m) {
-        for (int i = 0; i < m.numRows; i++) {
-            for (int j = 0; j < m.numCols; j++) {
-                float val = m.getReal(i, j);
-                System.out.printf("%c  ", val == 0 ? '*' : '0' + (int) val);
-            }
-            System.out.print("\n");
-        }
     }
 }
