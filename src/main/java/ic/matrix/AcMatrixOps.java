@@ -29,6 +29,28 @@ public class AcMatrixOps {
         }
     }
 
+    public static void mul(CMatrixRMaj M, ZMatrixAc Z, CMatrixRMaj dest) {
+        int idx = 0;
+        for (int i = 0, anchor = 0; i < M.numRows; i++, anchor += 2 * M.numCols) {
+            for (int j = 0; j < Z.size(); j++) {
+                float re = 0;
+                float im = 0;
+                for (int k = Z.begins[j]; k < Z.ends[j]; k++) {
+                    int col = Z.cols[k];
+                    float zRe = Z.res[k];
+                    float zIm = Z.ims[k];
+                    int mIdx = anchor + 2 * col;
+                    float mRe = M.data[mIdx];
+                    float mIm = M.data[mIdx + 1];
+                    re += (mRe * zRe - mIm * zIm);
+                    im += (mRe * zIm + zRe * mIm);
+                }
+                dest.data[idx++] = re;
+                dest.data[idx++] = im;
+            }
+        }
+    }
+
     public static void mulTransK(CMatrixRMaj M, KMatrix K, CMatrixRMaj dest) {
         int stride = M.numCols * 2;
         for (int r = 0, idx = 0, anchor = 0;

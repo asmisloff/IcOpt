@@ -1,5 +1,7 @@
 package ic.matrix;
 
+import org.ejml.data.CMatrixRMaj;
+
 public class ZMatrixAc {
 
     float[] res;
@@ -75,6 +77,19 @@ public class ZMatrixAc {
             stride = 2;
         }
         return Math.min(stride * 3 / 2, size());
+    }
+
+    public CMatrixRMaj toCMatrixRMaj() {
+        CMatrixRMaj m = new CMatrixRMaj(size(), size());
+        for (int row = 0; row < size(); row++) {
+            for (int idx = begins[row]; idx < ends[row]; ++idx) {
+                int col = cols[idx];
+                float re = res[idx];
+                float im = ims[idx];
+                m.set(row, col, re, im);
+            }
+        }
+        return m;
     }
 
     public String rowToString(int rowIdx) {
