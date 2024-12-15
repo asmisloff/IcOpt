@@ -1,5 +1,6 @@
 package ic.matrix.util;
 
+import java.util.function.DoubleConsumer;
 import java.util.function.Supplier;
 
 public class IcMatrixTestHelper {
@@ -10,6 +11,16 @@ public class IcMatrixTestHelper {
             action.run();
         }
         return (1e-6 * (System.nanoTime() - t0)) / timesToRepeat;
+    }
+
+    public static double measureTimeMillis(Runnable action, int timesToRepeat, DoubleConsumer also) {
+        long t0 = System.nanoTime();
+        for (int i = 0; i < timesToRepeat; i++) {
+            action.run();
+        }
+        double t = (1e-6 * (System.nanoTime() - t0)) / timesToRepeat;
+        also.accept(t);
+        return t;
     }
 
     public static <T> TimedValue<T> measureTimeMillis(Supplier<T> supplier, int timesToRepeat) {

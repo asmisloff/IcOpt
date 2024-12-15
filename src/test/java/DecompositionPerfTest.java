@@ -13,12 +13,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import static ic.matrix.util.IcMatrixTestHelper.measureTimeMillis;
 import static java.lang.Math.abs;
 
-public class PerfTest {
+public class DecompositionPerfTest {
 
     @Test
     void testLuDenseVsSparse() {
-        int n = 25;
-        int m = n * n / 4;
+        int n = 40;
+        int m = n * n / 2;
         int r = 500000;
         DMatrixRMaj dense = randomSymmetricPositivelyDefined(n, m);
         DMatrixSparseCSC sparse = toSparse(dense);
