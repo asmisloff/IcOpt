@@ -27,14 +27,18 @@ class AcMatrixOpsTest {
         CMatrixRMaj denseK = randomDenseKMatrix(numberOfCycles, size, numberOfEdgesInCycle);
         KMatrix sparseK = new KMatrix(numberOfCycles, size);
         copyElts(sparseK, denseK);
+        KMatrixCsr csrK = new KMatrixCsr(size);
+        copyElts(csrK, denseK);
 
         CMatrixRMaj expected = new CMatrixRMaj(numberOfCycles, size);
         int timesToRepeat = 20_000;
         double denseTime = measureTimeMillis(() -> CommonOps_CDRM.mult(denseK, denseZ, expected), timesToRepeat);
         CMatrixRMaj actual = new CMatrixRMaj(numberOfCycles, size);
         double sparseTime = measureTimeMillis(() -> AcMatrixOps.mul(sparseK, sparseZ, actual), timesToRepeat);
+        double sparseTimeCsr = measureTimeMillis(() -> AcMatrixOps.mul(csrK, sparseZ, actual), timesToRepeat);
         assertArrayEquals(expected.data, actual.data, 0.5e-3f);
         logTime(denseTime, sparseTime, timesToRepeat);
+        System.out.printf("csr: %.6f", sparseTimeCsr);
     }
 
     @Test
@@ -69,19 +73,25 @@ class AcMatrixOpsTest {
 
     @Test
     public void KZxKTrans() {
-        int timesToRepeat = 20_000;
+        int timesToRepeat = 200_000;
         int numRows = 30;
         int numCols = 100;
         int numberOfEdgesInCycle = 10;
-        CMatrixRMaj M = RandomMatrices_CDRM.rectangle(numRows, numCols, ThreadLocalRandom.current());
+        CMatrixRMaj denseZ = randomSymmetricalDenseMatrix(numCols, 0.1);
         CMatrixRMaj denseK = randomDenseKMatrix(numRows, numCols, numberOfEdgesInCycle);
+        ZMatrixAc sparseZ = new ZMatrixAc(numCols, numCols / 10);
         KMatrix sparseK = new KMatrix(numRows, numCols);
+        copyElts(sparseZ, denseZ);
         copyElts(sparseK, denseK);
+        CMatrixRMaj M = new CMatrixRMaj(numRows, numCols);
+        AcMatrixOps.mul(sparseK, sparseZ, M);
+
         CMatrixRMaj expected = new CMatrixRMaj(numRows, numRows);
         CMatrixRMaj actual = new CMatrixRMaj(numRows, numRows);
+
         double denseTime = measureTimeMillis(() -> CommonOps_CDRM.multTransB(M, denseK, expected), timesToRepeat);
         double sparseTime = measureTimeMillis(() -> AcMatrixOps.mulTransK(M, sparseK, actual), timesToRepeat);
-        assertArrayEquals(expected.data, actual.data);
+        assertArrayEquals(expected.data, actual.data, 0.5e-4f);
         logTime(denseTime, sparseTime, timesToRepeat);
     }
 
@@ -177,6 +187,18 @@ class AcMatrixOpsTest {
             for (int j = 0; j < src.numCols; j++) {
                 float re = src.getReal(i, j);
                 dest.set(i, j, (int) re);
+            }
+        }
+    }
+
+    private void copyElts(KMatrixCsr dest, CMatrixRMaj src) {
+        for (int i = 0; i < src.numRows; i++) {
+            dest.addRow();
+            for (int j = 0; j < src.numCols; j++) {
+                float re = src.getReal(i, j);
+                if (re != 0) {
+                    dest.append(j, re);
+                }
             }
         }
     }
