@@ -120,8 +120,10 @@ class AcMatrixOpsTest {
         CMatrixRMaj actual = new CMatrixRMaj(numRows, 1);
         double denseTime = measureTimeMillis(() -> CommonOps_CDRM.mult(M, denseV, expected), timesToRepeat);
         double sparseTime = measureTimeMillis(() -> AcMatrixOps.mul(M, sparseV, actual), timesToRepeat);
+        double sparseTime2 = measureTimeMillis(() -> AcMatrixOps.mul2(M, sparseV, actual), timesToRepeat);
         assertArrayEquals(expected.data, actual.data, 0.5e-6f);
         logTime(denseTime, sparseTime, timesToRepeat);
+        System.out.printf("t2 = %.6f (%.2f); %.2f", sparseTime2, sparseTime2 * timesToRepeat, sparseTime / sparseTime2);
     }
 
     @Test

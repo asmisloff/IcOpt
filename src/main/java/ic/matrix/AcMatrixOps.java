@@ -125,6 +125,23 @@ public class AcMatrixOps {
         }
     }
 
+    public static void mul2(CMatrixRMaj M, VectorAc V, CMatrixRMaj dest) {
+        Arrays.fill(dest.data, 0);
+        int maxR = M.numRows * 2;
+        int stride = M.numCols * 2;
+        for (int j = 1; j <= V.nzi[0]; ++j) {
+            int c = V.nzi[j];
+            for (int i = c, r = 0; r < maxR; i += stride, r += 2) {
+                float mRe = M.data[i];
+                float mIm = M.data[i + 1];
+                float vRe = V.data[c];
+                float vIm = V.data[c + 1];
+                dest.data[r] += (mRe * vRe - mIm * vIm);
+                dest.data[r + 1] += (mRe * vIm + vRe * mIm);
+            }
+        }
+    }
+
     public static void mulTransK(KMatrix K, CMatrixRMaj V, CMatrixRMaj dest) {
         Arrays.fill(dest.data, 0);
         for (int i = 0; i < K.numRows(); i++) {
