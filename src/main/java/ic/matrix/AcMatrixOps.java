@@ -16,15 +16,28 @@ public class AcMatrixOps {
                     int col = Z.cols[idx];
                     float re = Z.res[idx];
                     float im = Z.ims[idx];
-                    if (kRow[col] == 1) {
-                        real += re;
-                        imag += im;
-                    } else if (kRow[col] == -1) {
-                        real -= re;
-                        imag -= im;
-                    }
+                    byte kv = kRow[col];
+                    real += re * kv;
+                    imag += im * kv;
                 }
                 dest.set(k, z, real, imag);
+            }
+        }
+    }
+
+    public static void mul(KMatrixCsr K, ZMatrixAc Z, CMatrixRMaj dest) {
+        Arrays.fill(dest.data, 0);
+        int kLen = K.numRows() * K.numCols();
+        for (int i = 0; i < Z.size(); i++) {
+            for (int j = Z.begins[i]; j < Z.ends[i]; j++) {
+                int c = Z.cols[j];
+                float re = Z.res[j];
+                float im = Z.ims[j];
+                for (int k = c, d = 2 * i; k < kLen; k += K.numCols(), d += dest.numCols * 2) {
+                    float kv = (float) K.denseData.get(k);
+                    dest.data[d] += re * kv;
+                    dest.data[d + 1] += im * kv;
+                }
             }
         }
     }
@@ -53,11 +66,11 @@ public class AcMatrixOps {
 
     public static void mulTransK(CMatrixRMaj M, KMatrix K, CMatrixRMaj dest) {
         int stride = M.numCols * 2;
-        for (int r = 0, idx = 0, anchor = 0;
+        for (int r = 0, anchor = 0, idx = 0;
              r < M.numRows;
-             ++r, anchor += stride
+             ++r, anchor += stride, idx += r * 2
         ) {
-            for (int c = 0; c < K.numRows(); c++) {
+            for (int c = r; c < K.numRows(); c++) {
                 float re = 0f;
                 float im = 0f;
                 byte[] kRow = K.data[c];
@@ -66,16 +79,20 @@ public class AcMatrixOps {
                 for (int k = 1; k <= nonZeroEltQty; k++) {
                     int colIdx = nzis[k];
                     int mDataIdx = anchor + colIdx * 2;
-                    if (kRow[colIdx] == 1) {
-                        re += M.data[mDataIdx];
-                        im += M.data[mDataIdx + 1];
-                    } else { // -1
-                        re -= M.data[mDataIdx];
-                        im -= M.data[mDataIdx + 1];
-                    }
+                    byte kv = kRow[colIdx];
+                    re += M.data[mDataIdx] * kv;
+                    im += M.data[mDataIdx + 1] * kv;
                 }
                 dest.data[idx++] = re;
                 dest.data[idx++] = im;
+            }
+        }
+        for (int i = 0; i < K.numRows(); i++) {
+            for (int j = i + 1; j < K.numRows(); j++) {
+                int ij = 2 * (i * K.numRows() + j);
+                int ji = 2 * (j * K.numRows() + i);
+                dest.data[ji] = dest.data[ij];
+                dest.data[ji + 1] = dest.data[ij + 1];
             }
         }
     }

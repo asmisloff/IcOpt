@@ -80,6 +80,7 @@ public class KMatrixCsr {
             }
             System.out.printf("%.0f  ", denseData.get(i));
         }
+        System.out.println();
     }
 
     private int last(DynamicIntArray arr) {
