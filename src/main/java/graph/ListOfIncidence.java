@@ -2,19 +2,19 @@ package graph;
 
 import java.util.Arrays;
 
-public class IncidenceList<E extends ICircuitEdge> {
+public class ListOfIncidence<E extends ICircuitEdge> {
 
     private final int stride;
     private int[] degrees;
     private ICircuitEdge[] incidenceList;
 
-    public IncidenceList(int stride, int initialCapacity) {
+    public ListOfIncidence(int stride, int initialCapacity) {
         this.stride = stride;
         degrees = new int[initialCapacity];
         incidenceList = new ICircuitEdge[initialCapacity * stride];
     }
 
-    public IncidenceList() {
+    public ListOfIncidence() {
         this(10, 40);
     }
 

@@ -1,6 +1,6 @@
 import graph.ICircuitEdge;
 import graph.ICircuitNode;
-import graph.IncidenceList;
+import graph.ListOfIncidence;
 import graph.SchemaGraph;
 import org.jgrapht.graph.Multigraph;
 import org.junit.jupiter.api.Test;
@@ -13,8 +13,8 @@ import static java.lang.System.nanoTime;
 
 public class GraphPerfTest {
 
-    private Multigraph<Vertex, Edge> g = new Multigraph<>(Edge.class);
-    private final SchemaGraph<Vertex, Edge> sg = new SchemaGraph<>();
+    private Multigraph<Vertex, Edge> jGraph = new Multigraph<>(Edge.class);
+    private final SchemaGraph<Vertex, Edge> schemaGraph = new SchemaGraph<>();
 
     @Test
     public void filling() {
@@ -23,12 +23,12 @@ public class GraphPerfTest {
 
         measureTimeMillis(() -> {
             fillJGraphTMultigraph(n);
-            g = new Multigraph<>(Edge.class);
+            jGraph = new Multigraph<>(Edge.class);
         }, timesToRepeat, System.out::println);
 
         measureTimeMillis(() -> {
             fillSchemaGraph(n);
-            sg.clear();
+            schemaGraph.clear();
         }, timesToRepeat, System.out::println);
     }
 
@@ -46,8 +46,8 @@ public class GraphPerfTest {
         int cnt = 0;
         long t0 = nanoTime();
         for (int r = 0; r < timesToRepeat; r++) {
-            for (Vertex v : g.vertexSet()) {
-                for (Edge ignored : g.edgesOf(v)) {
+            for (Vertex v : jGraph.vertexSet()) {
+                for (Edge ignored : jGraph.edgesOf(v)) {
                     ++cnt;
                 }
             }
@@ -59,13 +59,13 @@ public class GraphPerfTest {
         fillSchemaGraph(n);
         int cnt = 0;
         long t0 = nanoTime();
-        IncidenceList<Edge> incidenceList = sg.incidenceList;
+        ListOfIncidence<Edge> loi = schemaGraph.loi;
         for (int r = 0; r < timesToRepeat; r++) {
-            for (Vertex v : sg.getVertices()) {
-                int begin = incidenceList.begin(v.index);
-                int end = begin + incidenceList.degree(v.index);
+            for (Vertex v : schemaGraph.getVertices()) {
+                int begin = loi.begin(v.index);
+                int end = begin + loi.degree(v.index);
                 for (int i = begin; i < end; i++) {
-                    Edge e = incidenceList.get(i);
+                    Edge e = loi.get(i);
                     if (e.getSourceNode() != v && e.getTargetNode() != v) {
                         throw new IllegalStateException();
                     }
@@ -84,24 +84,24 @@ public class GraphPerfTest {
         List<Vertex> vertices = new ArrayList<>();
         for (int i = 0; i < n; i++) {
             Vertex v = new Vertex(i);
-            g.addVertex(v);
+            jGraph.addVertex(v);
             vertices.add(v);
         }
         for (int i = 0; i < vertices.size() - 1; ++i) {
             Edge e = new Edge();
-            g.addEdge(vertices.get(i), vertices.get(i + 1), e);
+            jGraph.addEdge(vertices.get(i), vertices.get(i + 1), e);
         }
     }
 
     private void fillSchemaGraph(int n) {
         for (int i = 0; i < n; i++) {
             Vertex v = new Vertex(i);
-            sg.addVertex(v);
+            schemaGraph.addVertex(v);
         }
-        List<Vertex> vertices = sg.getVertices();
+        List<Vertex> vertices = schemaGraph.getVertices();
         for (int i = 0; i < vertices.size() - 1; ++i) {
             Edge e = new Edge();
-            sg.addEdge(vertices.get(i), vertices.get(i + 1), e);
+            schemaGraph.addEdge(vertices.get(i), vertices.get(i + 1), e);
         }
     }
 
