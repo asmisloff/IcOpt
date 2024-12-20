@@ -2,20 +2,20 @@ package ic.matrix;
 
 public class KMatrix {
 
-    final byte[][] data;
-    final short[][] nzi;
+    final double[][] data;
+    final int[][] nzi;
 
     public KMatrix(int nRows, int nCols) {
-        data = new byte[nRows][nCols];
-        nzi = new short[nRows][nCols + 1];
+        data = new double[nRows][nCols];
+        nzi = new int[nRows][nCols + 1];
     }
 
-    public KMatrix(byte[][] data) {
+    public KMatrix(double[][] data) {
         this.data = data;
-        nzi = new short[numRows()][numCols() + 1];
+        nzi = new int[numRows()][numCols() + 1];
         for (int r = 0; r < numRows(); r++) {
-            short[] nziRow = nzi[r];
-            byte[] dataRow = data[r];
+            int[] nziRow = nzi[r];
+            double[] dataRow = data[r];
             for (short c = 0; c < numCols(); c++) {
                 if (dataRow[c] != 0) {
                     nziRow[++nziRow[0]] = c;
