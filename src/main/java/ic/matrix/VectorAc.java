@@ -1,38 +1,38 @@
 package ic.matrix;
 
-import org.ejml.data.Complex_F32;
+import org.ejml.data.Complex_F64;
 
 public class VectorAc {
 
-    final float[] data;
+    final double[] data;
     final short[] nzi;
 
     public VectorAc(int size) {
-        data = new float[size * 2];
+        data = new double[size * 2];
         nzi = new short[size + 1];
     }
 
-    public float getRe(int idx) {
+    public double getRe(int idx) {
         return data[idx * 2];
     }
 
-    public float getIm(int idx) {
+    public double getIm(int idx) {
         return data[idx * 2 + 1];
     }
 
-    public void get(int idx, Complex_F32 dest) {
+    public void get(int idx, Complex_F64 dest) {
         idx *= 2;
         dest.real = data[idx];
         dest.imaginary = data[idx + 1];
     }
 
-    public void set(int idx, float re, float im) {
+    public void set(int idx, double re, double im) {
         idx *= 2;
         data[idx] = re;
         data[idx + 1] = im;
     }
 
-    public void insert(int idx, float re, float im) {
+    public void insert(int idx, double re, double im) {
         if (re != 0 || im != 0) {
             idx *= 2;
             nzi[++nzi[0]] = (short) idx;
