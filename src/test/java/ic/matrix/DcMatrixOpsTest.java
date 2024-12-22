@@ -25,7 +25,7 @@ class DcMatrixOpsTest {
         ZMatrixDc Z = randomZMatrixDc(numCols);
         DMatrixSparseCSC refZ = cscZ(Z);
         DMatrixSparseCSC refK = randomK(numRows, numCols, nzCount);
-        KMatrixCsr K = kCsr(refK);
+        IMatrixCsr K = kCsr(refK);
         DMatrixSparseCSC refKZ = new DMatrixSparseCSC(numRows, numCols);
         DMatrixSparseCSC refKTrans = new DMatrixSparseCSC(numCols, numRows);
         DMatrixSparseCSC refKZK = new DMatrixSparseCSC(numRows, numRows);
@@ -75,12 +75,12 @@ class DcMatrixOpsTest {
         return res;
     }
 
-    private KMatrixCsr kCsr(DMatrixSparseCSC K) {
-        KMatrixCsr res = new KMatrixCsr(K.numCols);
+    private IMatrixCsr kCsr(DMatrixSparseCSC K) {
+        IMatrixCsr res = new IMatrixCsr(K.numCols);
         for (int i = 0; i < K.numRows; i++) {
             res.addRow();
             for (int j = 0; j < K.numCols; j++) {
-                double v = K.get(i, j);
+                int v = (int) K.get(i, j);
                 if (v != 0) {
                     res.append(j, v);
                 }

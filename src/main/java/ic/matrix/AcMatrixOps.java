@@ -25,33 +25,12 @@ public class AcMatrixOps {
         }
     }
 
-    public static void mul(KMatrixCsr K, ZMatrixAc Z, ZMatrixRMaj dest) {
-        int kSize = K.numRows() * K.numCols();
-        int destIdx = 0;
-        for (int k = K.anchor(0); k < kSize; k += K.numCols()) {
-            for (int z = 0; z < Z.size(); z++) {
-                double real = 0f;
-                double imag = 0f;
-                for (int idx = Z.begins[z]; idx < Z.ends[z]; idx++) {
-                    int col = Z.cols[idx];
-                    double re = Z.res[idx];
-                    double im = Z.ims[idx];
-                    double kv = K.denseData.get(k + col);
-                    real += re * kv;
-                    imag += im * kv;
-                }
-                dest.data[destIdx++] = real;
-                dest.data[destIdx++] = imag;
-            }
-        }
-    }
-
-    public static void multGust(KMatrixCsr K, ZMatrixAc Z, ZMatrixRMaj dest) {
+    public static void multGust(IMatrixCsr K, ZMatrixAc Z, ZMatrixRMaj dest) {
         Arrays.fill(dest.data, 0, K.numRows() * K.numCols() * 2, 0);
         for (int i = 0, a = 0; i < K.numRows(); i++, a += K.numCols() * 2) {
             for (int j = K.csrBegin(i); j < K.csrEnd(i); ++j) {
                 int col = K.cols.get(j);
-                double kElt = K.get(i, col);
+                int kElt = K.data.get(j);
                 for (int k = Z.begins[col]; k < Z.ends[col]; k++) {
                     int outIdx = a + Z.cols[k] * 2;
                     dest.data[outIdx++] += kElt * Z.res[k];

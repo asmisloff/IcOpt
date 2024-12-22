@@ -27,7 +27,7 @@ class AcMatrixOpsTest {
         ZMatrixRMaj denseK = randomDenseKMatrix(numberOfCycles, size, numberOfEdgesInCycle);
         KMatrix sparseK = new KMatrix(numberOfCycles, size);
         copyElts(sparseK, denseK);
-        KMatrixCsr csrK = new KMatrixCsr(size);
+        IMatrixCsr csrK = new IMatrixCsr(size);
         copyElts(csrK, denseK);
 
         ZMatrixRMaj expected = new ZMatrixRMaj(numberOfCycles, size);
@@ -35,11 +35,9 @@ class AcMatrixOpsTest {
         double denseTime = measureTimeMillis(() -> CommonOps_ZDRM.mult(denseK, denseZ, expected), timesToRepeat);
         ZMatrixRMaj actual = new ZMatrixRMaj(numberOfCycles, size);
         double sparseTime = measureTimeMillis(() -> AcMatrixOps.mul(sparseK, sparseZ, actual), timesToRepeat);
-        double sparseTimeCsr = measureTimeMillis(() -> AcMatrixOps.mul(csrK, sparseZ, actual), timesToRepeat);
         double gustTime = measureTimeMillis(() -> AcMatrixOps.multGust(csrK, sparseZ, actual), timesToRepeat);
         assertArrayEquals(expected.data, actual.data, 0.5e-3f);
         logTime(denseTime, sparseTime, timesToRepeat);
-        System.out.printf("csr: %.6f\n", sparseTimeCsr);
         System.out.printf("Gust: %.6f\n", gustTime);
     }
 
@@ -52,14 +50,13 @@ class AcMatrixOpsTest {
         ZMatrixAc sparseZ = new ZMatrixAc(numCols, 3);
         copyElts(sparseZ, denseZ);
         ZMatrixRMaj denseK = randomDenseKMatrix(numRows, numCols, 3);
-        KMatrixCsr csrK = new KMatrixCsr(numCols);
+        IMatrixCsr csrK = new IMatrixCsr(numCols);
         copyElts(csrK, denseK);
         ZMatrixRMaj actual = new ZMatrixRMaj(numRows, numCols);
         ZMatrixRMaj expected = new ZMatrixRMaj(numRows, numCols);
         CommonOps_ZDRM.mult(denseK, denseZ, expected);
         AcMatrixOps.multGust(csrK, sparseZ, actual);
-        expected.print("%+.2f");
-        actual.print("%+.2f");
+        assertArrayEquals(expected.data, actual.data, 0.5e-6);
     }
 
     @Test
@@ -208,11 +205,11 @@ class AcMatrixOpsTest {
         }
     }
 
-    private void copyElts(KMatrixCsr dest, ZMatrixRMaj src) {
+    private void copyElts(IMatrixCsr dest, ZMatrixRMaj src) {
         for (int i = 0; i < src.numRows; i++) {
             dest.addRow();
             for (int j = 0; j < src.numCols; j++) {
-                double re = src.getReal(i, j);
+                int re = (int) src.getReal(i, j);
                 if (re != 0) {
                     dest.append(j, re);
                 }
