@@ -1,5 +1,6 @@
 package ic.memoization;
 
+import org.jetbrains.annotations.Nullable;
 import ru.vniizht.asuterkortes.counter.latticemodel.ic.memoization.TrainPosition;
 
 import java.util.List;
@@ -27,28 +28,32 @@ public class CompressedPayloads {
     }
 
     public long encode(TrainPosition pos) {
-        long code = pos.getLineIndex();
-        code <<= 61;
-        code |= encodeCoordinate(pos.getCoord());
-        long SHORT_MASK = 0x000000000000ffffL;
-        long ampRe = (round(pos.getActiveAmp()) & SHORT_MASK) << 16;
-        double fullAmp = 0;
-        if (pos.getFullAmp() != null) {
-            fullAmp = pos.getFullAmp();
-        }
-        long ampIm = round(fullAmp) & SHORT_MASK;
-        code |= ampRe;
-        code |= ampIm;
-        return code;
+        return encodeTrackNumber(pos.getLineIndex()) |
+                encodeCoordinate(pos.getCoord()) |
+                encodeAmperages(pos.getActiveAmp(), pos.getFullAmp());
     }
 
-    private long encodeCoordinate(double x) {
+    static long encodeTrackNumber(int trackNumber) {
+        return ((long) trackNumber) << 61;
+    }
+
+    static long encodeCoordinate(double x) {
         long c = round(x * 1000) << 32;
         if (x < 0) {
             long DROP_3_MSB_MASK = 0x1fffffffffffffffL;
             c &= DROP_3_MSB_MASK;
         }
         return c;
+    }
+
+    static long encodeAmperages(double activeAmp, @Nullable Double fullAmp) {
+        long SHORT_MASK = 0xffffL;
+        long amp = (round(activeAmp) & SHORT_MASK) << 16;
+        if (fullAmp == null) {
+            fullAmp = activeAmp;
+        }
+        amp |= round(fullAmp) & SHORT_MASK;
+        return amp;
     }
 
     @Override
