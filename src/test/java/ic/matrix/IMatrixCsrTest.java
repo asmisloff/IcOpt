@@ -2,10 +2,11 @@ package ic.matrix;
 
 import org.junit.jupiter.api.Test;
 
+import static ic.matrix.util.IcMatrixTestHelper.measureTimeMillis;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class KMatrixCsrTest {
+class IMatrixCsrTest {
 
     private final int numCols = 9;
     private final IMatrixCsr K = new IMatrixCsr(numCols);
@@ -55,7 +56,7 @@ class KMatrixCsrTest {
     void fill() {
         IMatrixCsr K = new IMatrixCsr(numCols);
         for (int r = 0; r < 10; r++) {
-            doFillKMatrix(K);
+            fillKMatrix(K);
             assertEquals(data.length, K.numRows());
             assertEquals(data[0].length, K.numCols());
             for (int i = 0; i < data.length; i++) {
@@ -65,7 +66,23 @@ class KMatrixCsrTest {
         }
     }
 
-    private void doFillKMatrix(IMatrixCsr K) {
+    @Test
+    void transpose() {
+        IMatrixCsr A = new IMatrixCsr(numCols);
+        IMatrixCsr AT = new IMatrixCsr(A.numRows());
+        fillKMatrix(A);
+        System.out.println(measureTimeMillis(() -> DcMatrixOps.transpose(A, AT), 200_000));
+        AT.print();
+        int[] expected = new int[data.length];
+        for (int i = 0; i < AT.numRows(); i++) {
+            for (int j = 0; j < data.length; j++) {
+                expected[j] = data[j][i];
+            }
+            assertArrayEquals(expected, denseRow(AT, i));
+        }
+    }
+
+    private void fillKMatrix(IMatrixCsr K) {
         for (int[] datum : data) {
             K.addRow();
             for (int j = 0; j < datum.length; j++) {
@@ -79,7 +96,7 @@ class KMatrixCsrTest {
 
     private int[] denseRow(IMatrixCsr K, int rowIdx) {
         int[] res = new int[K.numCols()];
-        for (int k = K.csrBegin(rowIdx); k < K.csrEnd(rowIdx); k++) {
+        for (int k = K.begin(rowIdx); k < K.end(rowIdx); k++) {
             int colIdx = K.cols.get(k);
             res[colIdx] = K.data.get(k);
         }

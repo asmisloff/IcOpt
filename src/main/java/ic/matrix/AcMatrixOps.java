@@ -26,9 +26,13 @@ public class AcMatrixOps {
     }
 
     public static void multGust(IMatrixCsr K, ZMatrixAc Z, ZMatrixRMaj dest) {
-        Arrays.fill(dest.data, 0, K.numRows() * K.numCols() * 2, 0);
+        int numberOfElements = K.numRows() * K.numCols();
+        if (dest.numRows * dest.numCols >= numberOfElements) {
+            Arrays.fill(dest.data, 0, numberOfElements * 2, 0);
+        }
+        dest.reshape(K.numRows(), K.numCols());
         for (int i = 0, a = 0; i < K.numRows(); i++, a += K.numCols() * 2) {
-            for (int j = K.csrBegin(i); j < K.csrEnd(i); ++j) {
+            for (int j = K.begin(i); j < K.end(i); ++j) {
                 int col = K.cols.get(j);
                 int kElt = K.data.get(j);
                 for (int k = Z.begins[col]; k < Z.ends[col]; k++) {

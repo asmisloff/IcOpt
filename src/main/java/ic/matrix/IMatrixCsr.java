@@ -2,6 +2,7 @@ package ic.matrix;
 
 import ru.vniizht.asuterkortes.counter.latticemodel.DynamicIntArray;
 
+/** Разреженная матрица целых чисел в формате CSR. */
 public class IMatrixCsr {
 
     public final DynamicIntArray data;
@@ -9,6 +10,9 @@ public class IMatrixCsr {
     public final DynamicIntArray cols;
     private int numCols;
 
+    /**
+     * @param numCols Количество столбцов.
+     */
     public IMatrixCsr(int numCols) {
         this.numCols = numCols;
         int numRows = 12;
@@ -18,6 +22,27 @@ public class IMatrixCsr {
         rows.append(0);
     }
 
+    /** Количество строк. */
+    public int numRows() {
+        return rows.getSize() - 1;
+    }
+
+    /** Количество столбцов. */
+    public int numCols() {
+        return numCols;
+    }
+
+    /** Количество ненулевых элементов. */
+    public int nzCnt() {
+        return cols.getSize();
+    }
+
+    /** Индекс в массивах <code>cols</code> и <code>data</code>, соответствующий началу <code>rowIdx</code>-й строки. */
+    public int begin(int rowIdx) {
+        return rows.get(rowIdx);
+    }
+
+    /** Сбросить состояние к "пустому": 0 строк, <code>numCols</code> столбцов. */
     public void reset(int numCols) {
         this.numCols = numCols;
         data.setSize(0);
@@ -26,38 +51,33 @@ public class IMatrixCsr {
         cols.setSize(0);
     }
 
+    /** Завершить формирование текущей строки и начать переключиться в режим формирования следующей строки. */
     void addRow() {
         rows.append(last(rows));
     }
 
-    public int numRows() {
-        return rows.getSize() - 1;
-    }
-
-    public int numCols() {
-        return numCols;
-    }
-
-    public int nzCnt() {
-        return cols.getSize();
-    }
-
-    public int csrBegin(int rowIdx) {
-        return rows.get(rowIdx);
-    }
-
-    public int csrEnd(int rowIdx) {
+    /** Индекс в массивах <code>cols</code> и <code>data</code>, соответствующий началу <code>(rowIdx + 1)</code>-й строки. */
+    public int end(int rowIdx) {
         return rows.get(rowIdx + 1);
     }
 
+    /**
+     * Добавить ненулевой элемент в <code>colIdx</code>-й столбец текущей строки.
+     * Контроль за отсутствием дубликатов и за тем, в самом ли деле <code>value = 0</code>, - ответственность вызывающего
+     * кода. Здесь нет проверок.
+     */
     public void append(int colIdx, int value) {
         incLast(rows);
         cols.append(colIdx);
         data.append(value);
     }
 
+    /**
+     * Возвращает значение элемента с координатами <code>(i, j)</code>.
+     * <p>Только для тестов и отладки (<code>O(n)</code>).</p>
+     */
     public int get(int i, int j) {
-        for (int k = csrBegin(i); k < csrEnd(i); k++) {
+        for (int k = begin(i); k < end(i); k++) {
             if (cols.get(k) == j) {
                 return data.get(k);
             }
@@ -65,21 +85,22 @@ public class IMatrixCsr {
         return 0;
     }
 
+    /** Напечатать плотное представление в System.out. */
     public void print() {
-        for (int i = 0, cnt = 0; i < data.getSize(); i++, ++cnt) {
-            if (cnt == numCols) {
-                cnt = 0;
-                System.out.println();
+        for (int i = 0; i < numRows(); i++) {
+            for (int j = 0; j < numCols(); j++) {
+                System.out.printf("%3d ", get(i, j));
             }
-            System.out.printf("%d  ", data.get(i));
+            System.out.println();
         }
-        System.out.println();
     }
 
+    /** Последний элемент массива. */
     private int last(DynamicIntArray arr) {
         return arr.get(arr.getSize() - 1);
     }
 
+    /** Увеличить последний элемент массива на 1. */
     private void incLast(DynamicIntArray arr) {
         int[] data = arr.getData();
         ++data[arr.getSize() - 1];
