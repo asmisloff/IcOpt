@@ -1,47 +1,34 @@
 package ic.matrix;
 
-import org.ejml.data.Complex_F64;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicComplexArray;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicIntArray;
+
+import java.util.Arrays;
 
 public class VectorAc {
 
-    final double[] data;
-    final short[] nzi;
+    /** Элементы вектора в "плотной" форме. */
+    public final DynamicComplexArray data;
+
+    /** Индексы ненулевых элементов. */
+    public final DynamicIntArray nzi;
 
     public VectorAc(int size) {
-        data = new double[size * 2];
-        nzi = new short[size + 1];
-    }
-
-    public double getRe(int idx) {
-        return data[idx * 2];
-    }
-
-    public double getIm(int idx) {
-        return data[idx * 2 + 1];
-    }
-
-    public void get(int idx, Complex_F64 dest) {
-        idx *= 2;
-        dest.real = data[idx];
-        dest.imaginary = data[idx + 1];
-    }
-
-    public void set(int idx, double re, double im) {
-        idx *= 2;
-        data[idx] = re;
-        data[idx + 1] = im;
+        data = new DynamicComplexArray(size);
+        data.setSize(size);
+        nzi = new DynamicIntArray(16);
     }
 
     public void insert(int idx, double re, double im) {
-        if (re != 0 || im != 0) {
-            idx *= 2;
-            nzi[++nzi[0]] = (short) idx;
-            data[idx] = re;
-            data[idx + 1] = im;
-        }
+        data.set(idx, re, im);
+        nzi.append(idx);
     }
 
-    public int size() {
-        return data.length / 2;
+    /** Повторная инициализация. */
+    public void reset(int size) {
+        data.setSize(size);
+        Arrays.fill(data.getDataRe(), 0, size, 0);
+        Arrays.fill(data.getDataIm(), 0, size, 0);
+        nzi.setSize(0);
     }
 }

@@ -1,10 +1,49 @@
 package ic.matrix;
 
 import org.ejml.data.ZMatrixRMaj;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicComplexArray;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicIntArray;
 
 import java.util.Arrays;
 
 public class AcMatrixOps {
+
+    public static ZMatrixCsr transpose(@NotNull ZMatrixCsr src, @Nullable ZMatrixCsr dest) {
+        if (dest == null) {
+            dest = new ZMatrixCsr(src.numRows());
+        } else {
+            dest.reset(src.numRows());
+        }
+        dest.cols.setSize(src.cols.getSize());
+        dest.data.setSize(src.data.getSize());
+        dest.rows.setSize(src.numCols() + 1);
+        int[] destRowsData = dest.rows.getData();
+        Arrays.fill(destRowsData, 0, dest.rows.getSize(), 0);
+        for (int i = 0; i < src.cols.getSize(); i++) {
+            destRowsData[src.cols.get(i) + 1]++;
+        }
+        int cumSum = 0;
+        int tmp;
+        for (int i = 1; i <= src.numCols(); i++) {
+            tmp = destRowsData[i];
+            destRowsData[i] = cumSum;
+            cumSum += tmp;
+        }
+        for (int i = 0; i < src.numRows(); i++) {
+            for (int j = src.begin(i); j < src.end(i); j++) {
+                double re = src.data.getRe(j);
+                double im = src.data.getIm(j);
+                int destRowIdx = src.cols.get(j);
+                int destIdx = destRowsData[destRowIdx + 1];
+                dest.data.set(destIdx, re, im);
+                dest.cols.set(destIdx, i);
+                destRowsData[destRowIdx + 1]++;
+            }
+        }
+        return dest;
+    }
 
     public static void mul(KMatrix K, ZMatrixAc Z, ZMatrixRMaj dest) {
         for (int k = 0; k < K.data.length; k++) {
@@ -25,7 +64,7 @@ public class AcMatrixOps {
         }
     }
 
-    public static void multGust(IMatrixCsr K, ZMatrixAc Z, ZMatrixRMaj dest) {
+    public static void mult(IMatrixCsr K, ZMatrixAc Z, ZMatrixRMaj dest) {
         int numberOfElements = K.numRows() * K.numCols();
         if (dest.numRows * dest.numCols >= numberOfElements) {
             Arrays.fill(dest.data, 0, numberOfElements * 2, 0);
@@ -42,6 +81,65 @@ public class AcMatrixOps {
                 }
             }
         }
+    }
+
+    /**
+     * Операция K&#215Z.
+     *
+     * @param K    Матрица независимых контуров.
+     * @param Z    Мастрица сопротивлений.
+     * @param tmpi Массив для промежуточных данных.
+     * @param tmpz Массив для промежуточных данных.
+     * @param dest Матрица для сохранения результата. Если <code>dest == null</code>, она будет создана.
+     * @return <code>dest</code>.
+     */
+    public static ZMatrixCsr mult(
+            @NotNull IMatrixCsr K,
+            @NotNull ZMatrixAc Z,
+            @NotNull DynamicIntArray tmpi,
+            @NotNull DynamicComplexArray tmpz,
+            @Nullable ZMatrixCsr dest
+    ) {
+        if (dest == null) {
+            dest = new ZMatrixCsr(K.numCols());
+        } else {
+            dest.reset(K.numCols());
+        }
+        tmpi.setSize(K.numCols());
+        tmpz.setSize(K.numCols());
+        Arrays.fill(tmpi.getData(), 0, tmpi.getSize(), -1);
+        dest.cols.ensureCapacity(K.numRows() * K.numCols());
+        dest.data.ensureCapacity(K.numRows() * K.numCols());
+        dest.rows.setSize(K.numRows() + 1);
+        int nzCnt = 0;
+        for (int i = 0; i < K.numRows(); i++) {
+            int r = i + 1;
+            for (int j = K.begin(i); j < K.end(i); ++j) {
+                int zRowIdx = K.cols.get(j);
+                int kElt = K.data.get(j);
+                for (int k = Z.begins[zRowIdx]; k < Z.ends[zRowIdx]; k++) {
+                    int zColIdx = Z.cols[k];
+                    double re = Z.res[k] * kElt;
+                    double im = Z.ims[k] * kElt;
+                    if (tmpi.get(zColIdx) < i) {
+                        tmpi.set(zColIdx, i);
+                        dest.cols.set(nzCnt++, zColIdx);
+                        tmpz.set(zColIdx, re, im);
+                    } else {
+                        tmpz.getDataRe()[zColIdx] += re;
+                        tmpz.getDataIm()[zColIdx] += im;
+                    }
+                }
+            }
+            dest.rows.set(r, nzCnt);
+            for (int j = dest.begin(i); j < dest.end(i); j++) {
+                int colIdx = dest.cols.get(j);
+                dest.data.set(j, tmpz.getRe(colIdx), tmpz.getIm(colIdx));
+            }
+        }
+        dest.cols.setSize(nzCnt);
+        dest.data.setSize(nzCnt);
+        return dest;
     }
 
     public static void mul(ZMatrixRMaj M, ZMatrixAc Z, ZMatrixRMaj dest) {
@@ -100,22 +198,15 @@ public class AcMatrixOps {
     }
 
     public static void mul(KMatrix K, VectorAc V, ZMatrixRMaj dest) {
-        short nonZeroEltQty = V.nzi[0];
         for (int i = 0, idx = 0; i < K.numRows(); i++) {
             double[] kRow = K.data[i];
             double re = 0;
             double im = 0;
-            for (int j = 1; j <= nonZeroEltQty; j++) {
-                int vIdx = V.nzi[j];
-                int kIdx = vIdx / 2;
-                double k = kRow[kIdx];
-                if (k == 1) {
-                    re += V.data[vIdx];
-                    im += V.data[vIdx + 1];
-                } else if (k == -1) {
-                    re -= V.data[vIdx];
-                    im -= V.data[vIdx + 1];
-                }
+            for (int j = 0; j < V.nzi.getSize(); ++j) {
+                int vIdx = V.nzi.get(j);
+                double k = kRow[vIdx];
+                re += V.data.getRe(vIdx) * k;
+                im += V.data.getIm(vIdx) * k;
             }
             dest.data[idx++] = re;
             dest.data[idx++] = im;
@@ -125,17 +216,17 @@ public class AcMatrixOps {
     public static void mul(ZMatrixRMaj M, VectorAc V, ZMatrixRMaj dest) {
         for (int idx = 0, anchor = 0;
              anchor < M.data.length;
-             anchor += V.data.length
+             anchor += V.data.getSize() * 2
         ) {
             double re = 0;
             double im = 0;
-            for (int j = 1; j <= V.nzi[0]; ++j) {
-                int c = V.nzi[j];
-                int i = anchor + c;
+            for (int j = 0; j < V.nzi.getSize(); ++j) {
+                int c = V.nzi.get(j);
+                int i = anchor + 2 * c;
                 double mRe = M.data[i];
                 double mIm = M.data[i + 1];
-                double vRe = V.data[c];
-                double vIm = V.data[c + 1];
+                double vRe = V.data.getRe(c);
+                double vIm = V.data.getIm(c);
                 re += (mRe * vRe - mIm * vIm);
                 im += (mRe * vIm + vRe * mIm);
             }
@@ -148,15 +239,17 @@ public class AcMatrixOps {
         Arrays.fill(dest.data, 0);
         int maxR = M.numRows * 2;
         int stride = M.numCols * 2;
-        for (int j = 1; j <= V.nzi[0]; ++j) {
-            int c = V.nzi[j];
-            for (int i = c, r = 0; r < maxR; i += stride, r += 2) {
+        for (int j = 0; j <= V.nzi.getSize(); ++j) {
+            int c = V.nzi.get(j);
+            for (int i = 2 * c, r = 0; r < maxR; i += stride, r += 2) {
                 double mRe = M.data[i];
                 double mIm = M.data[i + 1];
-                double vRe = V.data[c];
-                double vIm = V.data[c + 1];
-                dest.data[r] += (mRe * vRe - mIm * vIm);
-                dest.data[r + 1] += (mRe * vIm + vRe * mIm);
+                if (mRe != 0 || mIm != 0) {
+                    double vRe = V.data.getRe(c);
+                    double vIm = V.data.getIm(c);
+                    dest.data[r] += (mRe * vRe - mIm * vIm);
+                    dest.data[r + 1] += (mRe * vIm + vRe * mIm);
+                }
             }
         }
     }
