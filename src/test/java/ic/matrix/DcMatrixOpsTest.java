@@ -54,7 +54,10 @@ class DcMatrixOpsTest {
             refVec.set(idx, 0, value);
         }
         for (int i = 0; i < numCols; i++) {
-            vec.insert(i, refVec.get(i, 0));
+            double value = refVec.get(i, 0);
+            if (value != 0) {
+                vec.insert(i, value);
+            }
         }
     }
 
