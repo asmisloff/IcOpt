@@ -5,6 +5,7 @@ import org.ejml.data.DGrowArray;
 import org.ejml.data.DMatrixRMaj;
 import org.ejml.data.DMatrixSparseCSC;
 import org.ejml.data.IGrowArray;
+import org.ejml.dense.row.RandomMatrices_DDRM;
 import org.ejml.sparse.csc.CommonOps_DSCC;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static ic.matrix.util.IcMatrixTestHelper.measureTimeMillis;
+import static ic.matrix.util.IcMatrixTestHelper.measureTimeMs;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 @SuppressWarnings({ "FieldCanBeLocal", "SameParameterValue" })
@@ -126,6 +128,28 @@ class DcMatrixOpsTest {
         DMatrixRMaj sum = DcMatrixOps.add(KE, KZI, null);
 
         assertArrayEquals(rMaj(refSum), sum.data, 0.5e-6);
+    }
+
+    @Test
+    void J() {
+        DMatrixRMaj Icc = RandomMatrices_DDRM.rectangle(K.numRows(), 1, ThreadLocalRandom.current());
+        DMatrixSparseCSC refKT = CommonOps_DSCC.transpose(refK, null, gw);
+        DMatrixRMaj refIccK = CommonOps_DSCC.mult(refKT, Icc, null);
+        IMatrixCsr KT = DcMatrixOps.transpose(K, null);
+        DMatrixRMaj IccK = DcMatrixOps.mult(KT, Icc, null);
+        measureTimeMs("ref", timesToRepeat, () -> CommonOps_DSCC.mult(refKT, Icc, refIccK));
+        measureTimeMs("act", timesToRepeat, () -> DcMatrixOps.mult(KT, Icc, IccK));
+        assertArrayEquals(refIccK.data, IccK.data, 0.5e-6);
+    }
+
+    @Test
+    void dU() {
+        DMatrixRMaj J = RandomMatrices_DDRM.rectangle(Z.size(), 1, ThreadLocalRandom.current());
+        DMatrixRMaj refDu = CommonOps_DSCC.mult(refZ, J, null);
+        DMatrixRMaj dU = DcMatrixOps.mult(Z, J, null);
+        measureTimeMs("ref", timesToRepeat, () -> CommonOps_DSCC.mult(refZ, J, refDu));
+        measureTimeMs("act", timesToRepeat, () -> DcMatrixOps.mult(Z, J, dU));
+        assertArrayEquals(refDu.data, dU.data, 0.5e-6);
     }
 
     private DMatrixSparseCSC randomK(int numRows, int numCols, int nzCount) {

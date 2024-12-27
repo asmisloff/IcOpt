@@ -195,4 +195,47 @@ public class DcMatrixOps {
         }
         return dest;
     }
+
+    /**
+     * Операция <code>K<sup>T</sup>&#215I<sub>cc</sub></code>
+     * @param KT   Транспонированная матрица независимых контуров.
+     * @param Icc  Вектор контурных токов.
+     * @param dest Вектор для сохранения результата. Если <code>dest == null</code>, он будет создан.
+     * @return <code>dest</code>
+     */
+    @NotNull
+    public static DMatrixRMaj mult(@NotNull IMatrixCsr KT, @NotNull DMatrixRMaj Icc, @Nullable DMatrixRMaj dest) {
+        if (dest == null) {
+            dest = new DMatrixRMaj(KT.numRows(), 1);
+        } else {
+            dest.reshape(KT.numRows(), 1);
+        }
+        for (int i = 0; i < KT.numRows(); i++) {
+            double sum = 0;
+            for (int j = KT.begin(i); j < KT.end(i); j++) {
+                sum += KT.data.get(j) * Icc.data[KT.cols.get(j)];
+            }
+            dest.data[i] = sum;
+        }
+        return dest;
+    }
+
+    /**
+     * Операция <code>Z&#215J</code>
+     * @param Z  Матрица сопротивлений.
+     * @param J  Вектор токов в ребрах.
+     * @param dU Результирующий вектор падений напряжений на ребрах.
+     * @return <code>dU</code>. Если <code>dU == null</code>, он будет создан.
+     */
+    public static DMatrixRMaj mult(@NotNull ZMatrixDc Z, @NotNull DMatrixRMaj J, @Nullable DMatrixRMaj dU) {
+        if (dU == null) {
+            dU = new DMatrixRMaj(Z.size(), 1);
+        } else {
+            dU.reshape(Z.size(), 1);
+        }
+        for (int i = 0; i < Z.size(); i++) {
+            dU.set(i, Z.get(i) * J.get(i, 0));
+        }
+        return dU;
+    }
 }

@@ -31,4 +31,22 @@ public class IcMatrixTestHelper {
         }
         return new TimedValue<>(res, (1e-6 * (System.nanoTime() - t0)) / timesToRepeat);
     }
+
+    public static double measureTimeMs(int timesToRepeat, Runnable action) {
+        long t0 = System.nanoTime();
+        for (int i = 0; i < timesToRepeat; ++i) {
+            action.run();
+        }
+        return (1e-6 * (System.nanoTime() - t0)) / timesToRepeat;
+    }
+
+    public static double measureTimeMs(String title, int timesToRepeat, Runnable action) {
+        long t0 = System.nanoTime();
+        for (int i = 0; i < timesToRepeat; ++i) {
+            action.run();
+        }
+        double t = (1e-6 * (System.nanoTime() - t0)) / timesToRepeat;
+        System.out.printf("%s: %.6f мс\n", title, t);
+        return t;
+    }
 }
