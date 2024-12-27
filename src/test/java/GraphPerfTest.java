@@ -1,7 +1,7 @@
-import graph.ICircuitEdge;
 import graph.ICircuitNode;
 import graph.ListOfIncidence;
 import graph.SchemaGraph;
+import org.jgrapht.graph.BasicEdge;
 import org.jgrapht.graph.Multigraph;
 import org.junit.jupiter.api.Test;
 
@@ -122,28 +122,6 @@ public class GraphPerfTest {
         }
     }
 
-    private static class Edge implements ICircuitEdge {
-
-        private ICircuitNode sourceNode;
-        private ICircuitNode targetNode;
-
-        @Override
-        public ICircuitNode getSourceNode() {
-            return sourceNode;
-        }
-
-        @Override
-        public ICircuitNode getTargetNode() {
-            return targetNode;
-        }
-
-        public void setSourceNode(ICircuitNode sourceNode) {
-            this.sourceNode = sourceNode;
-        }
-
-        public void setTargetNode(ICircuitNode targetNode) {
-            this.targetNode = targetNode;
-        }
-    }
+    private static class Edge extends BasicEdge { }
 }
 
