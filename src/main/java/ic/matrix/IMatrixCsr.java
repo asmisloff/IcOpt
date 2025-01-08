@@ -16,8 +16,8 @@ public class IMatrixCsr {
     public IMatrixCsr(int numCols) {
         this.numCols = numCols;
         int numRows = 12;
-        data = new DynamicIntArray(numCols * numRows);
         rows = new DynamicIntArray(numRows);
+        data = new DynamicIntArray(numCols / 4 * numRows);
         cols = new DynamicIntArray(numCols / 4 * numRows);
         rows.append(0);
     }

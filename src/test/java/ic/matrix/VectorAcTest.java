@@ -2,6 +2,7 @@ package ic.matrix;
 
 import org.junit.jupiter.api.Test;
 
+import static ic.matrix.util.IcMatrixTestHelper.measureTimeMs;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -64,11 +65,14 @@ class VectorAcTest {
 
     @Test
     void insert() {
-        for (int i = 0; i < size(); i++) {
-            if (res[i] != 0 || ims[i] != 0) {
-                vec.insert(i, res[i], ims[i]);
+        measureTimeMs("insert", 20_000_000, () -> {
+            vec.reset(size());
+            for (int i = 0; i < size(); i++) {
+                if (res[i] != 0 || ims[i] != 0) {
+                    vec.insert(i, res[i], ims[i]);
+                }
             }
-        }
+        });
         assertArrayEquals(res, leftPart(vec.data.getDataRe(), res.length));
         assertArrayEquals(ims, leftPart(vec.data.getDataIm(), res.length));
         assertArrayEquals(new int[]{ 0, 1, 8, 9 }, leftPart(vec.nzi.getData(), vec.nzi.getSize()));

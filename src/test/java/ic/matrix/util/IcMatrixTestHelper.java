@@ -49,4 +49,8 @@ public class IcMatrixTestHelper {
         System.out.printf("%s: %.6f мс\n", title, t);
         return t;
     }
+
+    public static double msFrom(long t) {
+        return 1e-6 * (System.nanoTime() - t);
+    }
 }

@@ -8,10 +8,11 @@ import org.junit.jupiter.api.Test;
 import ru.vniizht.asuterkortes.counter.latticemodel.DynamicComplexArray;
 import ru.vniizht.asuterkortes.counter.latticemodel.DynamicIntArray;
 
+import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static ic.matrix.util.IcMatrixTestHelper.measureTimeMillis;
+import static ic.matrix.util.IcMatrixTestHelper.*;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 class AcMatrixOpsTest {
@@ -28,6 +29,64 @@ class AcMatrixOpsTest {
     }
 
     @Test
+    public void arrayFill() {
+        DynamicComplexArray arr = new DynamicComplexArray(100);
+        arr.setSize(1000);
+        long t0 = System.nanoTime();
+        double sum = 0;
+        for (int i = 0; i < 2_000_000; i++) {
+            Arrays.fill(arr.getDataRe(), 0, arr.getSize(), i);
+            Arrays.fill(arr.getDataIm(), 0, arr.getSize(), i);
+            sum += arr.getRe(i % 100) + arr.getIm(i % 100);
+        }
+        System.out.println(sum);
+        System.out.println(msFrom(t0));
+    }
+
+    @Test
+    public void KZKT() {
+        int size = 100;
+        double nonZeroEltFraction = 0.12;
+        int numberOfCycles = 30;
+        int numberOfEdgesInCycle = 10;
+        int timesToRepeat = 200_000;
+
+        ZMatrixRMaj refZ = randomSymmetricalDenseMatrix(size, nonZeroEltFraction);
+        ZMatrixRMaj refK = randomDenseKMatrix(numberOfCycles, size, numberOfEdgesInCycle);
+        ZMatrixRMaj refKT = new ZMatrixRMaj(refK.numCols, refK.numRows);
+        ZMatrixRMaj refKZ = new ZMatrixRMaj(refK);
+        ZMatrixRMaj refKZKT = new ZMatrixRMaj(refK.numRows, refK.numRows);
+        measureTimeMs("ref", timesToRepeat, () -> {
+            CommonOps_ZDRM.transpose(refK, refKT);
+            CommonOps_ZDRM.mult(refK, refZ, refKZ);
+            CommonOps_ZDRM.mult(refKZ, refKT, refKZKT);
+        });
+
+        ZMatrixCsr Z = zMatrixCsr(refZ);
+        IMatrixCsr K = iMatrixCsr(refK);
+        IMatrixCsr KT = new IMatrixCsr(K.numRows());
+        ZMatrixCsr KZ = new ZMatrixCsr(K.numCols());
+        ZMatrixRMaj KZKT = new ZMatrixRMaj(K.numRows(), K.numRows());
+        DynamicComplexArray tmpv = new DynamicComplexArray(K.numCols());
+        DynamicIntArray tmpc = new DynamicIntArray(K.numCols());
+        DynamicIntArray tmpi = new DynamicIntArray(K.numCols());
+        DcMatrixOps.transpose(K, KT);
+        measureTimeMs("ref1", timesToRepeat, () -> {
+            AcMatrixOps.KZKT(K, Z, KT, tmpv, tmpc, tmpi, KZKT);
+        });
+        System.out.printf("t1 = %.6f, t2 = %.6f\n", 1e-6 * AcMatrixOps.t1 / timesToRepeat, 1e-6 * AcMatrixOps.t2 / timesToRepeat);
+        AcMatrixOps.t1 = 0;
+        AcMatrixOps.t2 = 0;
+        measureTimeMs("ref2", timesToRepeat, () -> {
+            AcMatrixOps.KZ(K, Z, tmpi, tmpv, KZ);
+            AcMatrixOps.KZKT(KZ, KT, KZKT);
+        });
+        System.out.printf("t1 = %.6f, t2 = %.6f\n", 1e-6 * AcMatrixOps.t1 / timesToRepeat, 1e-6 * AcMatrixOps.t2 / timesToRepeat);
+
+        assertArrayEquals(refKZKT.data, KZKT.data, 0.5e-6);
+    }
+
+    @Test
     public void KxZ() {
         int size = 100;
         double nonZeroEltFraction = 0.12;
@@ -38,6 +97,7 @@ class AcMatrixOpsTest {
         ZMatrixRMaj denseZ = randomSymmetricalDenseMatrix(size, nonZeroEltFraction);
         ZMatrixAc sparseZ = new ZMatrixAc(size, strideEstimation);
         copyElts(sparseZ, denseZ);
+        ZMatrixCsr csrZ = zMatrixCsr(denseZ);
         ZMatrixRMaj denseK = randomDenseKMatrix(numberOfCycles, size, numberOfEdgesInCycle);
         KMatrix sparseK = new KMatrix(numberOfCycles, size);
         copyElts(sparseK, denseK);
@@ -48,13 +108,13 @@ class AcMatrixOpsTest {
         double denseTime = measureTimeMillis(() -> CommonOps_ZDRM.mult(denseK, denseZ, expected), timesToRepeat);
         ZMatrixRMaj actual = new ZMatrixRMaj(numberOfCycles, size);
         double sparseTime = measureTimeMillis(() -> AcMatrixOps.mul(sparseK, sparseZ, actual), timesToRepeat);
-        double gustTime = measureTimeMillis(() -> AcMatrixOps.mult(csrK, sparseZ, actual), timesToRepeat);
+        double gustTime = measureTimeMillis(() -> AcMatrixOps.KZ(csrK, csrZ, actual), timesToRepeat);
 
         DynamicIntArray tmpi = new DynamicIntArray(sparseZ.size());
         DynamicComplexArray tmpz = new DynamicComplexArray(sparseZ.size());
-        ZMatrixCsr csrKZ = AcMatrixOps.mult(csrK, sparseZ, tmpi, tmpz, null);
+        ZMatrixCsr csrKZ = AcMatrixOps.KZ(csrK, csrZ, tmpi, tmpz, null);
         double csrTime = measureTimeMillis(() -> {
-            AcMatrixOps.mult(csrK, sparseZ, tmpi, tmpz, csrKZ);
+            AcMatrixOps.KZ(csrK, csrZ, tmpi, tmpz, csrKZ);
         }, timesToRepeat);
         assertArrayEquals(expected.data, actual.data, 0.5e-6);
         assertArrayEquals(expected.data, rMaj(csrKZ), 0.5e-6);
@@ -73,13 +133,14 @@ class AcMatrixOpsTest {
         ZMatrixRMaj denseZ = randomSymmetricalDenseMatrix(numCols, 0.5);
         ZMatrixAc sparseZ = new ZMatrixAc(numCols, 3);
         copyElts(sparseZ, denseZ);
+        ZMatrixCsr csrZ = zMatrixCsr(denseZ);
         ZMatrixRMaj denseK = randomDenseKMatrix(numRows, numCols, 3);
         IMatrixCsr csrK = new IMatrixCsr(numCols);
         copyElts(csrK, denseK);
         ZMatrixRMaj actual = new ZMatrixRMaj(numRows, numCols);
         ZMatrixRMaj expected = new ZMatrixRMaj(numRows, numCols);
         CommonOps_ZDRM.mult(denseK, denseZ, expected);
-        AcMatrixOps.mult(csrK, sparseZ, actual);
+        AcMatrixOps.KZ(csrK, csrZ, actual);
         assertArrayEquals(expected.data, actual.data, 0.5e-6);
     }
 

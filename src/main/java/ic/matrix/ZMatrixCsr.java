@@ -10,6 +10,7 @@ public class ZMatrixCsr {
     public final DynamicIntArray rows;
     public final DynamicIntArray cols;
     private int numCols;
+    private int diagPrefixLength;
 
     /**
      * @param numCols Количество столбцов.
@@ -17,10 +18,11 @@ public class ZMatrixCsr {
     public ZMatrixCsr(int numCols) {
         this.numCols = numCols;
         int numRows = 12;
-        data = new DynamicComplexArray(numCols * numRows);
         rows = new DynamicIntArray(numRows);
-        cols = new DynamicIntArray(numCols / 4 * numRows);
+        data = new DynamicComplexArray(numCols * 3);
+        cols = new DynamicIntArray(numCols * 3);
         rows.append(0);
+        diagPrefixLength = 0;
     }
 
     /**
@@ -129,5 +131,13 @@ public class ZMatrixCsr {
     void incLast(DynamicIntArray arr) {
         int[] data = arr.getData();
         ++data[arr.getSize() - 1];
+    }
+
+    public int getDiagPrefixLength() {
+        return diagPrefixLength;
+    }
+
+    public void setDiagPrefixLength(int diagPrefixLength) {
+        this.diagPrefixLength = diagPrefixLength;
     }
 }

@@ -8,7 +8,82 @@ import ru.vniizht.asuterkortes.counter.latticemodel.DynamicIntArray;
 
 import java.util.Arrays;
 
+import static java.lang.System.nanoTime;
+
 public class AcMatrixOps {
+
+    public static long t1 = 0;
+    public static long t2 = 0;
+
+    public static ZMatrixRMaj KZKT(
+            @NotNull IMatrixCsr K,
+            @NotNull ZMatrixCsr Z,
+            @NotNull IMatrixCsr KT,
+            @NotNull DynamicComplexArray tmpv,
+            @NotNull DynamicIntArray tmpc,
+            @NotNull DynamicIntArray tmpi,
+            @Nullable ZMatrixRMaj dest
+    ) {
+        if (dest == null) {
+            dest = new ZMatrixRMaj(K.numRows(), K.numRows());
+        } else {
+            dest.reshape(K.numRows(), K.numRows());
+            dest.zero();
+        }
+        tmpv.setSize(Z.numCols());
+        tmpc.setSize(Z.numCols());
+        tmpi.setSize(Z.numCols());
+        Arrays.fill(tmpi.getData(), 0, tmpi.getSize(), -1);
+        int nzCnt;
+        for (int i = 0, a = 0; i < K.numRows(); i++, a += 2 * K.numRows()) {
+            nzCnt = 0;
+            long start = nanoTime();
+            for (int j = K.begin(i); j < K.end(i); j++) {
+                int colIdx = K.cols.get(j);
+                int k = K.data.get(j);
+                for (int l = Z.begin(colIdx); l < Z.end(colIdx); l++) {
+                    double re = Z.data.getRe(l) * k;
+                    double im = Z.data.getIm(l) * k;
+                    int idx = Z.cols.get(l);
+                    if (tmpi.get(idx) < i) {
+                        tmpi.set(idx, i);
+                        tmpc.set(nzCnt++, idx);
+                        tmpv.set(idx, re, im);
+                    } else {
+                        tmpv.getDataRe()[idx] += re;
+                        tmpv.getDataIm()[idx] += im;
+                    }
+                }
+            }
+            long start2 = nanoTime();
+            t1 += start2 - start;
+            for (int j = 0; j < nzCnt; j++) {
+                int idx = tmpc.get(j);
+                double re = tmpv.getRe(idx);
+                double im = tmpv.getIm(idx);
+                for (int m = KT.begin(idx); m < KT.end(idx); m++) {
+                    int c = KT.cols.get(m);
+                    if (c > i) {
+                        break;
+                    }
+                    int k = KT.data.get(m);
+                    int l = a + 2 * c;
+                    dest.data[l] += re * k;
+                    dest.data[l + 1] += im * k;
+                }
+            }
+            t2 += nanoTime() - start2;
+        }
+        for (int i = 0; i < K.numRows(); i++) {
+            for (int j = 0; j < i; j++) {
+                int ij = 2 * (i * K.numRows() + j);
+                int ji = 2 * (j * K.numRows() + i);
+                dest.data[ji] = dest.data[ij];
+                dest.data[ji + 1] = dest.data[ij + 1];
+            }
+        }
+        return dest;
+    }
 
     public static ZMatrixCsr transpose(@NotNull ZMatrixCsr src, @Nullable ZMatrixCsr dest) {
         if (dest == null) {
@@ -64,7 +139,7 @@ public class AcMatrixOps {
         }
     }
 
-    public static void mult(IMatrixCsr K, ZMatrixAc Z, ZMatrixRMaj dest) {
+    public static void KZ(IMatrixCsr K, ZMatrixCsr Z, ZMatrixRMaj dest) {
         int numberOfElements = K.numRows() * K.numCols();
         if (dest.numRows * dest.numCols >= numberOfElements) {
             Arrays.fill(dest.data, 0, numberOfElements * 2, 0);
@@ -74,10 +149,10 @@ public class AcMatrixOps {
             for (int j = K.begin(i); j < K.end(i); ++j) {
                 int col = K.cols.get(j);
                 int kElt = K.data.get(j);
-                for (int k = Z.begins[col]; k < Z.ends[col]; k++) {
-                    int outIdx = a + Z.cols[k] * 2;
-                    dest.data[outIdx++] += kElt * Z.res[k];
-                    dest.data[outIdx] += kElt * Z.ims[k];
+                for (int k = Z.begin(col); k < Z.end(col); k++) {
+                    int outIdx = a + Z.cols.get(k) * 2;
+                    dest.data[outIdx++] += kElt * Z.data.getRe(k);
+                    dest.data[outIdx] += kElt * Z.data.getIm(k);
                 }
             }
         }
@@ -93,9 +168,9 @@ public class AcMatrixOps {
      * @param dest Матрица для сохранения результата. Если <code>dest == null</code>, она будет создана.
      * @return <code>dest</code>.
      */
-    public static ZMatrixCsr mult(
+    public static ZMatrixCsr KZ(
             @NotNull IMatrixCsr K,
-            @NotNull ZMatrixAc Z,
+            @NotNull ZMatrixCsr Z,
             @NotNull DynamicIntArray tmpi,
             @NotNull DynamicComplexArray tmpz,
             @Nullable ZMatrixCsr dest
@@ -117,10 +192,10 @@ public class AcMatrixOps {
             for (int j = K.begin(i); j < K.end(i); ++j) {
                 int zRowIdx = K.cols.get(j);
                 int kElt = K.data.get(j);
-                for (int k = Z.begins[zRowIdx]; k < Z.ends[zRowIdx]; k++) {
-                    int zColIdx = Z.cols[k];
-                    double re = Z.res[k] * kElt;
-                    double im = Z.ims[k] * kElt;
+                for (int k = Z.begin(zRowIdx); k < Z.end(zRowIdx); k++) {
+                    int zColIdx = Z.cols.get(k);
+                    double re = Z.data.getRe(k) * kElt;
+                    double im = Z.data.getIm(k) * kElt;
                     if (tmpi.get(zColIdx) < i) {
                         tmpi.set(zColIdx, i);
                         dest.cols.set(nzCnt++, zColIdx);
@@ -139,6 +214,41 @@ public class AcMatrixOps {
         }
         dest.cols.setSize(nzCnt);
         dest.data.setSize(nzCnt);
+        return dest;
+    }
+
+    public static ZMatrixRMaj KZKT(@NotNull ZMatrixCsr KZ, @NotNull IMatrixCsr KT, @Nullable ZMatrixRMaj dest) {
+        if (dest == null) {
+            dest = new ZMatrixRMaj(KZ.numRows(), KZ.numRows());
+        } else {
+            dest.reshape(KZ.numRows(), KZ.numRows());
+            dest.zero();
+        }
+        for (int i = 0, a = 0; i < KZ.numRows(); i++, a += 2 * KZ.numRows()) {
+            for (int j = KZ.begin(i); j < KZ.end(i); j++) {
+                double re = KZ.data.getRe(j);
+                double im = KZ.data.getIm(j);
+                int ktRowIdx = KZ.cols.get(j);
+                for (int ki = KT.begin(ktRowIdx); ki < KT.end(ktRowIdx); ki++) {
+                    int c = KT.cols.get(ki);
+                    if (c > i) {
+                        break;
+                    }
+                    int k = KT.data.get(ki);
+                    int idx = a + 2 * c;
+                    dest.data[idx] += re * k;
+                    dest.data[idx + 1] += im * k;
+                }
+            }
+        }
+        for (int i = 0; i < KZ.numRows(); i++) {
+            for (int j = 0; j < i; j++) {
+                int ij = 2 * (i * KZ.numRows() + j);
+                int ji = 2 * (j * KZ.numRows() + i);
+                dest.data[ji] = dest.data[ij];
+                dest.data[ji + 1] = dest.data[ij + 1];
+            }
+        }
         return dest;
     }
 
