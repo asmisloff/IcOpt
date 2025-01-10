@@ -1,106 +1,130 @@
 package ic.matrix;
 
-import org.ejml.data.ZMatrixRMaj;
+import org.ejml.data.Complex_F64;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicComplexArray;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicIntArray;
 
 public class ZMatrixAc {
 
-    double[] res;
-    double[] ims;
-    int[] cols;
-    int[] begins;
-    int[] ends;
-    int stride;
+    public final DynamicComplexArray data;
+    public final DynamicIntArray cols;
+    private final DynamicIntArray begins;
+    private final DynamicIntArray ends;
+    private int blockEdgesQty;
+    private int wiringEdgesQty;
 
+    /**
+     * @param blockEdgesQty  Количество ребер графа схемы, не связанных взаимоиндукцией (внутренние ребра блоков).
+     * @param wiringEdgesQty Количество ребер графа схемы, потенциально связанных взаимоиндукцией (ребра тяговых сетей).
+     */
+    public ZMatrixAc(int blockEdgesQty, int wiringEdgesQty) {
+        this.blockEdgesQty = blockEdgesQty;
+        this.wiringEdgesQty = wiringEdgesQty;
+        int totalEdgeQty = blockEdgesQty + wiringEdgesQty;
+        begins = new DynamicIntArray(totalEdgeQty);
+        ends = new DynamicIntArray(totalEdgeQty);
+        int dataSize = blockEdgesQty + wiringEdgesQty * wiringEdgesQty;
+        data = new DynamicComplexArray(dataSize);
+        cols = new DynamicIntArray(dataSize);
+        initArrays();
+    }
+
+    /**
+     * Количество строк (столбцов) матрицы.
+     */
     public int size() {
-        return begins.length;
+        return blockEdgesQty + wiringEdgesQty;
     }
 
-    public ZMatrixAc(int size, int stride) {
-        assert stride >= 1;
-        this.stride = stride;
-        int capacity = size * stride;
-        res = new double[capacity];
-        ims = new double[capacity];
-        cols = new int[capacity];
-        ends = new int[size];
-        begins = new int[size];
-        for (int i = 0, anchor = 0; i < size; i++, anchor += stride) {
-            begins[i] = anchor;
-            ends[i] = anchor;
-        }
+    /**
+     * Индекс в массивах <code>cols</code> и <code>data</code>, соответствующий началу <code>rowIdx</code>-й строки.
+     */
+    public int begin(int rowIdx) {
+        return begins.get(rowIdx);
     }
 
-    public void add(int rowIdx, int colIdx, double re, double im) {
-        if (re != 0 || im != 0) {
-            ensureCapacity(rowIdx);
-            int idx = ends[rowIdx]++;
-            cols[idx] = colIdx;
-            res[idx] = re;
-            ims[idx] = im;
-        }
+    /**
+     * Индекс в массивах <code>cols</code> и <code>data</code>, соответствующий началу <code>(rowIdx + 1)</code>-й строки.
+     */
+    public int end(int rowIdx) {
+        return ends.get(rowIdx);
     }
 
-    private void ensureCapacity(int rowIdx) {
-        int idx = ends[rowIdx];
-        if (idx == res.length || rowIdx < ends.length - 1 && idx == begins[rowIdx + 1]) {
-            realloc();
-        }
+    /**
+     * Повторно инициализировать внутренние массивы.
+     * @param blockEdgesQty  Количество ребер графа схемы, не связанных взаимоиндукцией (внутренние ребра блоков).
+     * @param wiringEdgesQty Количество ребер графа схемы, потенциально связанных взаимоиндукцией (ребра тяговых сетей).
+     */
+    public void reset(int blockEdgesQty, int wiringEdgesQty) {
+        this.blockEdgesQty = blockEdgesQty;
+        this.wiringEdgesQty = wiringEdgesQty;
+        initArrays();
     }
 
-    private void realloc() {
-        stride = extendedStride();
-        int capacity = size() * stride;
-        double[] newRes = new double[capacity];
-        double[] newIms = new double[capacity];
-        int[] newCols = new int[capacity];
-        for (int i = 0, newBegin = 0; i < size(); i++, newBegin += stride) {
-            int oldBegin = begins[i];
-            int oldEnd = ends[i];
-            int len = oldEnd - oldBegin;
-            try {
-                System.arraycopy(res, oldBegin, newRes, newBegin, len);
-                System.arraycopy(ims, oldBegin, newIms, newBegin, len);
-                System.arraycopy(cols, oldBegin, newCols, newBegin, len);
-            } catch (Exception e) {
-                System.out.printf(e.toString());
-            }
-            begins[i] = newBegin;
-            ends[i] = newBegin + len;
-        }
-        res = newRes;
-        ims = newIms;
-        cols = newCols;
+    /**
+     * Добавить ненулевой элемент в <code>colIdx</code>-й столбец текущей строки.
+     * <p>
+     * Вызывающий код должен гарантировать следующее.
+     *  <ul>
+     *      <li>Элемент с парой индексов (i, j) добавляется лишь единожды.</li>
+     *      <li>Ребра с номерами <code>[0, blockEdgesQty)</code> не участвуют в индуктивном взаимодействии, и соответствующие
+     *      им сопротивления расположены исключительно на главной диагонали.</li>
+     *  </ul>
+     * </p>
+     */
+    public void insert(int rowIdx, int colIdx, double re, double im) {
+        int dataIdx = ends.getData()[rowIdx]++;
+        cols.set(dataIdx, colIdx);
+        data.set(dataIdx, re, im);
     }
 
-    private int extendedStride() {
-        if (stride < 2) { // Если stride == 1, то по формуле ниже никогда ничего не увеличится.
-            stride = 2;
-        }
-        return Math.min(stride * 3 / 2, size());
-    }
-
-    public ZMatrixRMaj toZMatrixRMaj() {
-        ZMatrixRMaj m = new ZMatrixRMaj(size(), size());
-        for (int row = 0; row < size(); row++) {
-            for (int idx = begins[row]; idx < ends[row]; ++idx) {
-                int col = cols[idx];
-                double re = res[idx];
-                double im = ims[idx];
-                m.set(row, col, re, im);
+    /**
+     * Возвращает значение элемента с координатами <code>(i, j)</code>.
+     * <p>Только для тестов и отладки (<code>O(n)</code>).</p>
+     */
+    public void get(int i, int j, Complex_F64 dest) {
+        for (int k = begin(i); k < end(i); k++) {
+            if (cols.get(k) == j) {
+                data.get(k, dest);
+                return;
             }
         }
-        return m;
+        dest.setTo(0, 0);
     }
 
-    public String rowToString(int rowIdx) {
-        StringBuilder sb = new StringBuilder();
-        for (int idx = begins[rowIdx]; idx < ends[rowIdx]; ++idx) {
-            int colIdx = cols[idx];
-            double re = res[idx];
-            double im = ims[idx];
-            sb.append(colIdx).append(": ").append('(').append(re).append(", ").append(im).append("); ");
+    /**
+     * Напечатать плотное представление в System.out.
+     */
+    public void print() {
+        Complex_F64 z = new Complex_F64();
+        for (int i = 0; i < size(); i++) {
+            for (int j = 0; j < size(); j++) {
+                get(i, j, z);
+                System.out.printf("(%5.2f; %5.2f) ", z.real, z.imaginary);
+            }
+            System.out.println();
         }
-        sb.setLength(sb.length() - 1);
-        return sb.toString();
+    }
+
+    public int getBlockEdgesQty() {
+        return blockEdgesQty;
+    }
+
+    private void initArrays() {
+        int totalEdgeQty = size();
+        begins.setSize(totalEdgeQty);
+        for (int i = 0; i < blockEdgesQty; i++) {
+            begins.set(i, i);
+        }
+        begins.set(blockEdgesQty, blockEdgesQty);
+        for (int i = blockEdgesQty + 1; i < totalEdgeQty; i++) {
+            int rowStartIdx = begins.get(i - 1) + wiringEdgesQty;
+            begins.set(i, rowStartIdx);
+        }
+        ends.setSize(totalEdgeQty);
+        System.arraycopy(begins.getData(), 0, ends.getData(), 0, totalEdgeQty);
+        int dataSize = blockEdgesQty + wiringEdgesQty * wiringEdgesQty;
+        data.setSize(dataSize);
+        cols.setSize(dataSize);
     }
 }

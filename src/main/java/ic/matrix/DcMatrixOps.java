@@ -189,6 +189,8 @@ public class DcMatrixOps {
     ) {
         if (dest == null) {
             dest = new DMatrixRMaj(KE.getSize(), 1);
+        } else {
+            dest.reshape(KE.getSize(), 1);
         }
         for (int i = 0; i < KE.getSize(); i++) {
             dest.data[i] = KE.get(i) + KZI.get(i);
