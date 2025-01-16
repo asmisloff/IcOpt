@@ -1,247 +1,184 @@
 package ic.matrix;
 
-import org.ejml.data.CMatrixRMaj;
-import org.ejml.dense.row.CommonOps_CDRM;
-import org.ejml.dense.row.RandomMatrices_CDRM;
+import org.ejml.data.Complex_F64;
+import org.ejml.data.ZMatrixRMaj;
+import org.ejml.dense.row.CommonOps_ZDRM;
+import org.ejml.dense.row.RandomMatrices_ZDRM;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicComplexArray;
 
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static ic.matrix.util.IcMatrixTestHelper.measureTimeMillis;
+import static ic.matrix.util.IcMatrixTestHelper.measureTimeMs;
+import static ic.matrix.util.IcMatrixTestHelper.randomDenseZMatrix;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AcMatrixOpsTest {
+
+    private final int timesToRepeat = 20_000;
+    private final int numberOfCycles = 30;
+    private final int numberOfEdges = 100;
+    private final int numberOfBlockEdges = numberOfEdges / 2;
+
+    private final ZMatrixRMaj refZ = randomDenseZMatrix(numberOfBlockEdges, numberOfEdges, 12);
+    private final ZMatrixAc Z = zMatrixAc(refZ);
+
+    private final ZMatrixRMaj refK = randomDenseKMatrix(10);
+    private final IMatrixCsr K = iMatrixCsr(refK);
+
+    private final ZMatrixRMaj refE = randomDenseVector(3);
+    private final VectorAc E = vectorAc(refE);
+
+    private final ZMatrixRMaj refI = randomDenseVector(10);
+    private final VectorAc I = vectorAc(refI);
+
+    private final ZMatrixRMaj refKZ = new ZMatrixRMaj(refK);
+    private ZMatrixRMaj KZ = new ZMatrixRMaj(refK);
+
+    private final ZMatrixRMaj refKZKT = new ZMatrixRMaj(refK.numRows, refK.numRows);
+    private ZMatrixRMaj KZKT = new ZMatrixRMaj(refKZKT);
+
+    private final IMatrixCsr KT = DcMatrixOps.transpose(K, null);
+
+    private final ZMatrixRMaj refKE = new ZMatrixRMaj(numberOfCycles, 1);
+    private final DynamicComplexArray KE = AcMatrixOps.mult(E, KT, null);
+
+    private final ZMatrixRMaj refKZI = new ZMatrixRMaj(numberOfCycles, 1);
+    private final DynamicComplexArray KZI = AcMatrixOps.mult(I, Z, KT, null);
+
+    private final ZMatrixRMaj Icc = RandomMatrices_ZDRM.rectangle(numberOfCycles, 1, ThreadLocalRandom.current());
 
     @Test
     public void KxZ() {
-        int size = 100;
-        double nonZeroEltFraction = 0.05;
-        int numberOfCycles = 20;
-        int numberOfEdgesInCycle = 10;
-        int strideEstimation = (int) (size * nonZeroEltFraction);
-
-        CMatrixRMaj denseZ = randomSymmetricalDenseMatrix(size, nonZeroEltFraction);
-        ZMatrixAc sparseZ = new ZMatrixAc(size, strideEstimation);
-        copyElts(sparseZ, denseZ);
-        CMatrixRMaj denseK = randomDenseKMatrix(numberOfCycles, size, numberOfEdgesInCycle);
-        KMatrix sparseK = new KMatrix(numberOfCycles, size);
-        copyElts(sparseK, denseK);
-        KMatrixCsr csrK = new KMatrixCsr(size);
-        copyElts(csrK, denseK);
-
-        CMatrixRMaj expected = new CMatrixRMaj(numberOfCycles, size);
-        int timesToRepeat = 20_000;
-        double denseTime = measureTimeMillis(() -> CommonOps_CDRM.mult(denseK, denseZ, expected), timesToRepeat);
-        CMatrixRMaj actual = new CMatrixRMaj(numberOfCycles, size);
-        double sparseTime = measureTimeMillis(() -> AcMatrixOps.mul(sparseK, sparseZ, actual), timesToRepeat);
-        double sparseTimeCsr = measureTimeMillis(() -> AcMatrixOps.mul(csrK, sparseZ, actual), timesToRepeat);
-        assertArrayEquals(expected.data, actual.data, 0.5e-3f);
-        logTime(denseTime, sparseTime, timesToRepeat);
-        System.out.printf("csr: %.6f", sparseTimeCsr);
+        measureTimeMs("ref", timesToRepeat, () -> CommonOps_ZDRM.mult(refK, refZ, refKZ));
+        measureTimeMs("act", timesToRepeat, () -> AcMatrixOps.KZ(K, Z, KZ));
+        assertArrayEquals(refKZ.data, KZ.data, 0.5e-6);
     }
 
     @Test
-    public void MxZ() {
-        int size = 28;
-        double nonZeroEltFraction = 0.05;
-        int numberOfCycles = 8;
-        int strideEstimation = (int) (size * nonZeroEltFraction);
-        double[] zd = new double[] {
-                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.999999717180685E-10, 9.999999717180685E-10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.1855581998825073, 5.52900505065918, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0E9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0E9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.24053999781608582, 0.8466053605079651, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2320999950170517, 0.8168998956680298, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.999999717180685E-10, 9.999999717180685E-10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.999999717180685E-10, 9.999999717180685E-10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.999999717180685E-10, 9.999999717180685E-10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.999999717180685E-10, 9.999999717180685E-10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.999999717180685E-10, 9.999999717180685E-10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0E9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.512547016143799, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.999999717180685E-10, 9.999999717180685E-10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.5242633819580078, 6.0709333419799805, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0E9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0E9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.37136000394821167, 1.3070398569107056, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.37136000394821167, 1.3070398569107056, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.219768106484753, 9.518618151528116, 0.0, 0.0, 0.0, 0.0, 0.5717379676333968, 2.907089735629052, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.051175765080938, 4.6268795765032245, 0.0, 0.0, 0.0, 0.0, 0.2805120296361036, 1.4263066093915209, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.403034756690722, 5.420575177730305, 0.0, 0.0, 0.0, 0.0, 0.32863110434556847, 1.6709754543781268, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5717379676333968, 2.907089735629052, 0.0, 0.0, 0.0, 0.0, 4.1806943699741055, 9.4304787248228, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2805120296361036, 1.4263066093915209, 0.0, 0.0, 0.0, 0.0, 2.051175764772081, 4.626879579976341, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.32863110434556847, 1.6709754543781268, 0.0, 0.0, 0.0, 0.0, 2.403034756328884, 5.4205751817992
-        };
-        float[] zf = new float[zd.length];
-        for (int i = 0; i < zd.length; i++) {
-            zf[i] = (float) zd[i];
-        }
-
-        CMatrixRMaj denseZ = new CMatrixRMaj(size, size, true, zf);
-        ZMatrixAc sparseZ = new ZMatrixAc(size, strideEstimation);
-        copyElts(sparseZ, denseZ);
-        CMatrixRMaj M = new CMatrixRMaj(numberOfCycles, size, true,
-                -1, 1e-9f, 1, 1e-9f, -1, 1e-9f, 1, 1e-9f, 0, 0, 0, 0, 0, 0, 1, 1E-9f, 1, 1E-9f, 0, 0, -1, 1E-9f, 0, 0, 0, 0, 1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1E-9f, -1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1E-9f, 1, 1E-9f, -1, 1E-9f, 0, 0, -1, 1E-9f, 0, 0, -1, 1E-9f, -1, 1E-9f, 0, 0, 1, 1E-9f, 0, 0, 0, 0, -1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1E-9f, 0, 0, 1, 1E-9f, -1, 1E-9f, 1, 1E-9f, -1, 1E-9f, -1, 1E-9f, 0, 0, 0, 0, 1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1E-9f, -1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1E-9f, 1, 1E-9f, -1, 1E-9f, 1, 1E-9f, -1, 1E-9f, -1, 1E-9f, 0, 0, 0, 0, 0, 0, 1, 1E-9f, 0, 0, -1, 1E-9f, -1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1E-9f, -1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1E-9f, -1, 1E-9f, 0, 0, -1, 1E-9f, 1, 1E-9f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1E-9f, 0, 0, 0, 0, 1, 1E-9f, 0, 0, 0, 0);
-
-        CMatrixRMaj expected = new CMatrixRMaj(numberOfCycles, size);
-        int timesToRepeat = 20_000;
-        double denseTime = measureTimeMillis(() -> CommonOps_CDRM.mult(M, denseZ, expected), timesToRepeat);
-        CMatrixRMaj actual = new CMatrixRMaj(numberOfCycles, size);
-        double sparseTime = measureTimeMillis(() -> AcMatrixOps.mul(M, sparseZ, actual), timesToRepeat);
-        assertArrayEquals(expected.data, actual.data);
-        logTime(denseTime, sparseTime, timesToRepeat);
-        actual.print();
+    public void KZxKT() {
+        CommonOps_ZDRM.mult(refK, refZ, refKZ);
+        measureTimeMs("ref", timesToRepeat, () -> CommonOps_ZDRM.multTransB(refKZ, refK, refKZKT));
+        KZ = AcMatrixOps.KZ(K, Z, KZ);
+        measureTimeMs("act", timesToRepeat, () -> AcMatrixOps.KZKT(KZ, K, KZKT));
+        assertArrayEquals(refKZKT.data, KZKT.data, 0.5e-4f);
     }
 
     @Test
-    public void KZxKTrans() {
-        int timesToRepeat = 200_000;
-        int numRows = 30;
-        int numCols = 100;
-        int numberOfEdgesInCycle = 10;
-        CMatrixRMaj denseZ = randomSymmetricalDenseMatrix(numCols, 0.1);
-        CMatrixRMaj denseK = randomDenseKMatrix(numRows, numCols, numberOfEdgesInCycle);
-        ZMatrixAc sparseZ = new ZMatrixAc(numCols, numCols / 10);
-        KMatrix sparseK = new KMatrix(numRows, numCols);
-        copyElts(sparseZ, denseZ);
-        copyElts(sparseK, denseK);
-        CMatrixRMaj M = new CMatrixRMaj(numRows, numCols);
-        AcMatrixOps.mul(sparseK, sparseZ, M);
-
-        CMatrixRMaj expected = new CMatrixRMaj(numRows, numRows);
-        CMatrixRMaj actual = new CMatrixRMaj(numRows, numRows);
-
-        double denseTime = measureTimeMillis(() -> CommonOps_CDRM.multTransB(M, denseK, expected), timesToRepeat);
-        double sparseTime = measureTimeMillis(() -> AcMatrixOps.mulTransK(M, sparseK, actual), timesToRepeat);
-        assertArrayEquals(expected.data, actual.data, 0.5e-4f);
-        logTime(denseTime, sparseTime, timesToRepeat);
+    public void KZKT() {
+        measureTimeMs("ref", timesToRepeat, () -> {
+            CommonOps_ZDRM.mult(refK, refZ, refKZ);
+            CommonOps_ZDRM.multTransB(refKZ, refK, refKZKT);
+        });
+        measureTimeMs("act", timesToRepeat, () -> {
+            AcMatrixOps.KZ(K, Z, KZ);
+            KZKT = AcMatrixOps.KZKT(KZ, K, KZKT);
+        });
+        assertArrayEquals(refKZKT.data, KZKT.data, 0.5e-6);
     }
 
     @Test
     public void KxE() {
-        int timesToRepeat = 20_000;
-        int numberOfCycles = 25;
-        int numberOfEdges = 100;
-        int numberOfEdgesInCycle = 10;
-        int nonZeroEltQty = 3;
-        CMatrixRMaj denseK = randomDenseKMatrix(numberOfCycles, numberOfEdges, numberOfEdgesInCycle);
-        KMatrix sparseK = new KMatrix(numberOfCycles, numberOfEdges);
-        copyElts(sparseK, denseK);
-        CMatrixRMaj denseE = randomDenseVector(numberOfEdges, nonZeroEltQty);
-        VectorAc sparseE = new VectorAc(numberOfEdges);
-        copyElts(sparseE, denseE);
-        CMatrixRMaj expected = new CMatrixRMaj(numberOfCycles, 1);
-        CMatrixRMaj actual = new CMatrixRMaj(numberOfCycles, 1);
-        double denseTime = measureTimeMillis(() -> CommonOps_CDRM.mult(denseK, denseE, expected), timesToRepeat);
-        double sparseTime = measureTimeMillis(() -> AcMatrixOps.mul(sparseK, sparseE, actual), timesToRepeat);
-        assertArrayEquals(expected.data, actual.data, 0.5e-6f);
-        logTime(denseTime, sparseTime, timesToRepeat);
+        int timesToRepeat = 200_000;
+        measureTimeMs("ref", timesToRepeat, () -> CommonOps_ZDRM.mult(refK, refE, refKE));
+        measureTimeMs("act", timesToRepeat, () -> AcMatrixOps.mult(E, KT, KE));
+        assertArrayEquals(refKE.data, rMaj(KE), 0.5e-6f);
     }
 
     @Test
     public void KZxI() {
         int timesToRepeat = 200_000;
-        int numRows = 25;
-        int numCols = 100;
-        int nonZeroEltQty = 10;
-        CMatrixRMaj M = RandomMatrices_CDRM.rectangle(numRows, numCols, ThreadLocalRandom.current());
-        CMatrixRMaj denseV = randomDenseVector(numCols, nonZeroEltQty);
-        VectorAc sparseV = new VectorAc(numCols);
-        copyElts(sparseV, denseV);
-        CMatrixRMaj expected = new CMatrixRMaj(numRows, 1);
-        CMatrixRMaj actual = new CMatrixRMaj(numRows, 1);
-        double denseTime = measureTimeMillis(() -> CommonOps_CDRM.mult(M, denseV, expected), timesToRepeat);
-        double sparseTime = measureTimeMillis(() -> AcMatrixOps.mul(M, sparseV, actual), timesToRepeat);
-        double sparseTime2 = measureTimeMillis(() -> AcMatrixOps.mul2(M, sparseV, actual), timesToRepeat);
-        assertArrayEquals(expected.data, actual.data, 0.5e-6f);
-        logTime(denseTime, sparseTime, timesToRepeat);
-        System.out.printf("t2 = %.6f (%.2f); %.2f", sparseTime2, sparseTime2 * timesToRepeat, sparseTime / sparseTime2);
+        CommonOps_ZDRM.mult(refK, refZ, refKZ);
+        measureTimeMs("ref", timesToRepeat, () -> CommonOps_ZDRM.mult(refKZ, refI, refKZI));
+        measureTimeMs("act", timesToRepeat, () -> AcMatrixOps.mult(I, Z, KT, KZI));
+        assertArrayEquals(refKZI.data, rMaj(KZI), 0.5e-6f);
     }
 
     @Test
-    public void KTrans_x_Icc() {
+    public void KE_minus_KZI() {
+        int timesToRepeat = 2_000_000;
+        CommonOps_ZDRM.mult(refK, refE, refKE);
+        CommonOps_ZDRM.mult(refK, refZ, refKZ);
+        CommonOps_ZDRM.mult(refKZ, refI, refKZI);
+        ZMatrixRMaj refB = new ZMatrixRMaj(refKE);
+        ZMatrixRMaj B = AcMatrixOps.sub(KE, KZI, null);
+        assertArrayEquals(refKE.data, rMaj(KE), 0.5e-6);
+        assertArrayEquals(refKZI.data, rMaj(KZI), 0.5e-6);
+        measureTimeMs("ref", timesToRepeat, () -> CommonOps_ZDRM.subtract(refKE, refKZI, refB));
+        measureTimeMs("act", timesToRepeat, () -> AcMatrixOps.sub(KE, KZI, B));
+        assertArrayEquals(refB.data, B.data, 0.5e-6);
+    }
+
+    @Test
+    public void J() {
         int timesToRepeat = 200_000;
-        int numberOfCycles = 25;
-        int numberOfEdges = 100;
-        int numberOfEdgesInCycle = 10;
-        CMatrixRMaj denseK = randomDenseKMatrix(numberOfCycles, numberOfEdges, numberOfEdgesInCycle);
-        KMatrix sparseK = new KMatrix(numberOfCycles, numberOfEdges);
-        copyElts(sparseK, denseK);
-        CMatrixRMaj Icc = RandomMatrices_CDRM.rectangle(numberOfCycles, 1, ThreadLocalRandom.current());
-        CMatrixRMaj expected = new CMatrixRMaj(numberOfEdges, 1);
-        CMatrixRMaj actual = new CMatrixRMaj(numberOfEdges, 1);
-        double denseTime = measureTimeMillis(() -> CommonOps_CDRM.multTransA(denseK, Icc, expected), timesToRepeat);
-        double sparseTime = measureTimeMillis(() -> AcMatrixOps.mulTransK(sparseK, Icc, actual), timesToRepeat);
+        ZMatrixRMaj expected = new ZMatrixRMaj(numberOfEdges, 1);
+        ZMatrixRMaj actual = new ZMatrixRMaj(numberOfEdges, 1);
+        measureTimeMs("ref", timesToRepeat, () -> CommonOps_ZDRM.multTransA(refK, Icc, expected));
+        measureTimeMs("act", timesToRepeat, () -> AcMatrixOps.mult(KT, Icc, actual));
         assertArrayEquals(expected.data, actual.data, 0.5e-6f);
-        logTime(denseTime, sparseTime, timesToRepeat);
     }
 
     @Test
     public void ZxJ() {
         int timesToRepeat = 200_000;
-        int size = 100;
-        double nonZeroEltFraction = 0.05;
-        int strideEstimation = (int) (size * nonZeroEltFraction * 1.2);
-        CMatrixRMaj denseZ = randomSymmetricalDenseMatrix(size, nonZeroEltFraction);
-        ZMatrixAc sparseZ = new ZMatrixAc(size, strideEstimation);
-        copyElts(sparseZ, denseZ);
-        CMatrixRMaj J = randomDenseVector(size, size);
-        CMatrixRMaj expected = new CMatrixRMaj(size, 1);
-        CMatrixRMaj actual = new CMatrixRMaj(size, 1);
-        double denseTime = measureTimeMillis(() -> CommonOps_CDRM.mult(denseZ, J, expected), timesToRepeat);
-        double sparseTime = measureTimeMillis(() -> AcMatrixOps.mul(sparseZ, J, actual), timesToRepeat);
-        assertArrayEquals(expected.data, actual.data, 0.5e-6f);
-        logTime(denseTime, sparseTime, timesToRepeat);
+        ZMatrixRMaj J = AcMatrixOps.mult(KT, Icc, null);
+        ZMatrixRMaj refDu = new ZMatrixRMaj(numberOfEdges, 1);
+        ZMatrixRMaj dU = AcMatrixOps.mult(Z, J, null);
+        measureTimeMs("ref", timesToRepeat, () -> CommonOps_ZDRM.mult(refZ, J, refDu));
+        measureTimeMs("act", timesToRepeat, () -> AcMatrixOps.mult(Z, J, dU));
+        assertArrayEquals(refDu.data, dU.data, 0.5e-6f);
     }
 
-    private void copyElts(ZMatrixAc dest, CMatrixRMaj src) {
-        for (int i = 0; i < src.numRows; i++) {
-            for (int j = 0; j < src.numCols; j++) {
-                float re = src.getReal(i, j);
-                float im = src.getImag(i, j);
-                dest.add(i, j, re, im);
-            }
-        }
-    }
-
-    private void copyElts(KMatrix dest, CMatrixRMaj src) {
-        for (int i = 0; i < src.numRows; i++) {
-            for (int j = 0; j < src.numCols; j++) {
-                float re = src.getReal(i, j);
-                dest.set(i, j, (int) re);
-            }
-        }
-    }
-
-    private void copyElts(KMatrixCsr dest, CMatrixRMaj src) {
-        for (int i = 0; i < src.numRows; i++) {
-            dest.addRow();
-            for (int j = 0; j < src.numCols; j++) {
-                float re = src.getReal(i, j);
+    private IMatrixCsr iMatrixCsr(ZMatrixRMaj M) {
+        IMatrixCsr res = new IMatrixCsr(M.numCols);
+        for (int i = 0; i < M.numRows; i++) {
+            res.addRow();
+            for (int j = 0; j < M.numCols; j++) {
+                double re = M.getReal(i, j);
                 if (re != 0) {
-                    dest.append(j, re);
+                    res.append(j, (int) re);
                 }
             }
         }
+        return res;
     }
 
-    private void copyElts(VectorAc dest, CMatrixRMaj src) {
-        for (int i = 0; i < src.numRows; i++) {
-            float re = src.getReal(i, 0);
-            float im = src.getImag(i, 0);
+    private ZMatrixAc zMatrixAc(ZMatrixRMaj M) {
+        ZMatrixAc res = new ZMatrixAc(numberOfBlockEdges, numberOfEdges - numberOfBlockEdges);
+        Complex_F64 z = new Complex_F64();
+        for (int i = 0; i < M.numRows; i++) {
+            for (int j = 0; j < M.numCols; j++) {
+                M.get(i, j, z);
+                if (z.real != 0 && z.imaginary != 0) {
+                    res.insert(i, j, z.real, z.imaginary);
+                }
+            }
+        }
+        return res;
+    }
+
+    private VectorAc vectorAc(ZMatrixRMaj V) {
+        VectorAc res = new VectorAc(V.numRows);
+        for (int i = 0; i < V.numRows; i++) {
+            double re = V.getReal(i, 0);
+            double im = V.getImag(i, 0);
             if (re != 0 || im != 0) {
-                dest.insert(i, re, im);
+                res.insert(i, re, im);
             }
         }
+        return res;
     }
 
-    private CMatrixRMaj randomSymmetricalDenseMatrix(int size, double nonZeroEltFraction) {
-        CMatrixRMaj m = new CMatrixRMaj(size, size);
-        int n = (int) (nonZeroEltFraction * (size * size - size)) / 2;
-        ThreadLocalRandom tlr = ThreadLocalRandom.current();
-        for (int i = 0; i < size; i++) {
-            float re = tlr.nextFloat();
-            float im = tlr.nextFloat();
-            m.set(i, i, re, im);
-        }
-        for (int i = 0; i < n; i++) {
-            float re = tlr.nextFloat(-1, 1);
-            float im = tlr.nextFloat(-1, 1);
-            int j = 0, k = 0;
-            while (m.getReal(j, k) != 0 || m.getImag(j, k) != 0) {
-                j = tlr.nextInt(0, size);
-                k = tlr.nextInt(0, size);
-            }
-            m.set(j, k, re, im);
-            m.set(k, j, re, im);
-        }
-        return m;
-    }
-
-    private CMatrixRMaj randomDenseKMatrix(int numRows, int numCols, int nonZeroEltsInRow) {
+    private ZMatrixRMaj randomDenseKMatrix(@SuppressWarnings("SameParameterValue") int nzCntPerRow) {
         Random r = ThreadLocalRandom.current();
-        CMatrixRMaj m = new CMatrixRMaj(numRows, numCols);
-        for (int i = 0; i < numRows; i++) {
-            for (int k = 0; k < nonZeroEltsInRow; k++) {
-                int j = r.nextInt(0, numCols);
+        ZMatrixRMaj m = new ZMatrixRMaj(numberOfCycles, numberOfEdges);
+        for (int i = 0; i < numberOfCycles; i++) {
+            for (int k = 0; k < nzCntPerRow; k++) {
+                int j = r.nextInt(0, numberOfEdges);
                 int v = r.nextBoolean() ? 1 : -1;
                 m.set(i, j, v, 0);
             }
@@ -249,28 +186,27 @@ class AcMatrixOpsTest {
         return m;
     }
 
-    private CMatrixRMaj randomDenseVector(int numRows, int numNonZeroes) {
-        CMatrixRMaj res = new CMatrixRMaj(numRows, 1);
+    private ZMatrixRMaj randomDenseVector(int nzCnt) {
+        ZMatrixRMaj res = new ZMatrixRMaj(numberOfEdges, 1);
         Random r = ThreadLocalRandom.current();
         int origin = -1;
         int bound = 1;
-        if (numNonZeroes < numRows) { // разреженный
-            for (int i = 0; i < numNonZeroes; i++) {
-                int idx = r.nextInt(0, numRows);
-                float re = r.nextFloat(origin, bound);
-                float im = r.nextFloat(origin, bound);
-                res.set(idx, 0, re, im);
-            }
-        } else { // плотный
-            for (int i = 0; i < numRows; i++) {
-                res.set(i, 0, r.nextFloat(origin, bound), r.nextFloat(origin, bound));
-            }
+        for (int i = 0; i < nzCnt; i++) {
+            int idx = r.nextInt(0, numberOfBlockEdges);
+            double re = r.nextFloat(origin, bound);
+            double im = r.nextFloat(origin, bound);
+            res.set(idx, 0, re, im);
         }
         return res;
     }
 
-    private void logTime(double denseTime, double sparseTime, int timesToRepeat) {
-        System.out.printf("Итого   -- плотн.: %.2f мс; разр.: %.2f мс\n", denseTime * timesToRepeat, sparseTime * timesToRepeat);
-        System.out.printf("На цикл -- плотн.: %.6f мс; разр.: %.6f мс\n", denseTime, sparseTime);
+    private double[] rMaj(DynamicComplexArray a) {
+        double[] res = new double[a.getSize() * 2];
+        int idx = 0;
+        for (int i = 0; i < a.getSize(); i++) {
+            res[idx++] = a.getRe(i);
+            res[idx++] = a.getIm(i);
+        }
+        return res;
     }
 }

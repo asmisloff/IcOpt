@@ -1,92 +1,97 @@
 package ic.matrix;
 
-import org.ejml.data.CMatrixRMaj;
+import org.ejml.data.ZMatrixRMaj;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicComplexArray;
 
 import java.util.Arrays;
 
 public class AcMatrixOps {
 
-    public static void mul(KMatrix K, ZMatrixAc Z, CMatrixRMaj dest) {
-        for (int k = 0; k < K.data.length; k++) {
-            byte[] kRow = K.data[k];
-            for (int z = 0; z < Z.size(); z++) {
-                float real = 0f;
-                float imag = 0f;
-                for (int idx = Z.begins[z]; idx < Z.ends[z]; idx++) {
-                    int col = Z.cols[idx];
-                    float re = Z.res[idx];
-                    float im = Z.ims[idx];
-                    byte kv = kRow[col];
-                    real += re * kv;
-                    imag += im * kv;
+    /**
+     * Операция K&#215Z.
+     * @param K    Матрица независимых контуров.
+     * @param Z    Матрица сопротивлений.
+     * @param dest Матрица для сохранения результата. Если <code>dest == null</code>, она будет создана.
+     * @return <code>dest</code>
+     */
+    @NotNull
+    public static ZMatrixRMaj KZ(
+            @NotNull IMatrixCsr K,
+            @NotNull ZMatrixAc Z,
+            @Nullable ZMatrixRMaj dest
+    ) {
+        if (dest == null) {
+            dest = new ZMatrixRMaj(K.numRows(), K.numCols());
+        } else {
+            int numberOfElements = K.numRows() * K.numCols();
+            if (dest.numRows * dest.numCols >= numberOfElements) {
+                Arrays.fill(dest.data, 0, numberOfElements * 2, 0);
+            }
+            dest.reshape(K.numRows(), K.numCols());
+        }
+        for (int i = 0, a = 0; i < K.numRows(); i++, a += K.numCols() * 2) {
+            for (int j = K.begin(i); j < K.end(i); ++j) {
+                int col = K.cols.get(j);
+                int kElt = K.data.get(j);
+                if (col < Z.getBlockEdgesQty()) {
+                    int outIdx = a + col * 2;
+                    dest.data[outIdx++] = kElt * Z.data.getRe(col);
+                    dest.data[outIdx] = kElt * Z.data.getIm(col);
+                } else {
+                    for (int k = Z.begin(col); k < Z.end(col); k++) {
+                        int outIdx = a + Z.cols.get(k) * 2;
+                        dest.data[outIdx++] += kElt * Z.data.getRe(k);
+                        dest.data[outIdx] += kElt * Z.data.getIm(k);
+                    }
                 }
-                dest.set(k, z, real, imag);
             }
         }
+        return dest;
     }
 
-    public static void mul(KMatrixCsr K, ZMatrixAc Z, CMatrixRMaj dest) {
-        Arrays.fill(dest.data, 0);
-        int kLen = K.numRows() * K.numCols();
-        for (int i = 0; i < Z.size(); i++) {
-            for (int j = Z.begins[i]; j < Z.ends[i]; j++) {
-                int c = Z.cols[j];
-                float re = Z.res[j];
-                float im = Z.ims[j];
-                for (int k = c, d = 2 * i; k < kLen; k += K.numCols(), d += dest.numCols * 2) {
-                    float kv = (float) K.denseData.get(k);
-                    dest.data[d] += re * kv;
-                    dest.data[d + 1] += im * kv;
-                }
-            }
-        }
-    }
 
-    public static void mul(CMatrixRMaj M, ZMatrixAc Z, CMatrixRMaj dest) {
-        int idx = 0;
-        for (int i = 0, anchor = 0; i < M.numRows; i++, anchor += 2 * M.numCols) {
-            for (int j = 0; j < Z.size(); j++) {
-                float re = 0;
-                float im = 0;
-                for (int k = Z.begins[j]; k < Z.ends[j]; k++) {
-                    int col = Z.cols[k];
-                    float zRe = Z.res[k];
-                    float zIm = Z.ims[k];
-                    int mIdx = anchor + 2 * col;
-                    float mRe = M.data[mIdx];
-                    float mIm = M.data[mIdx + 1];
-                    re += (mRe * zRe - mIm * zIm);
-                    im += (mRe * zIm + zRe * mIm);
-                }
-                dest.data[idx++] = re;
-                dest.data[idx++] = im;
-            }
+    /**
+     * Операция KZ&#215K<sup>T</sup>.
+     * @param KZ   Предварительно вычисленная матрица <code>KZ</code>.
+     * @param K    Матрица независимых контуров.
+     * @param dest Матрица для сохранения результата. Если <code>dest == null</code>, она будет создана.
+     * @return <code>dest</code>
+     */
+    @NotNull
+    public static ZMatrixRMaj KZKT(
+            @NotNull ZMatrixRMaj KZ,
+            @NotNull IMatrixCsr K,
+            @Nullable ZMatrixRMaj dest
+    ) {
+        if (dest == null) {
+            dest = new ZMatrixRMaj(KZ.numRows, KZ.numRows);
+        } else {
+            dest.reshape(KZ.numRows, KZ.numRows);
         }
-    }
-
-    public static void mulTransK(CMatrixRMaj M, KMatrix K, CMatrixRMaj dest) {
-        int stride = M.numCols * 2;
-        for (int r = 0, anchor = 0, idx = 0;
-             r < M.numRows;
-             ++r, anchor += stride, idx += r * 2
-        ) {
-            for (int c = r; c < K.numRows(); c++) {
-                float re = 0f;
-                float im = 0f;
-                byte[] kRow = K.data[c];
-                short[] nzis = K.nzi[c];
-                short nonZeroEltQty = nzis[0];
-                for (int k = 1; k <= nonZeroEltQty; k++) {
-                    int colIdx = nzis[k];
-                    int mDataIdx = anchor + colIdx * 2;
-                    byte kv = kRow[colIdx];
-                    re += M.data[mDataIdx] * kv;
-                    im += M.data[mDataIdx + 1] * kv;
+        int kzStride = KZ.numCols * 2;
+        int kzRowAnchor = 0;
+        int destIdx = 0;
+        /* Главная диагональ и верхний треугольник. */
+        for (int i = 0; i < KZ.numRows; ++i) {
+            destIdx += 2 * i;
+            for (int j = i; j < K.numRows(); j++) {
+                double re = 0f;
+                double im = 0f;
+                for (int k = K.begin(j); k < K.end(j); k++) {
+                    int colIdx = K.cols.get(k);
+                    int kzDataIdx = kzRowAnchor + colIdx * 2;
+                    double kv = K.data.get(k);
+                    re += KZ.data[kzDataIdx] * kv;
+                    im += KZ.data[kzDataIdx + 1] * kv;
                 }
-                dest.data[idx++] = re;
-                dest.data[idx++] = im;
+                dest.data[destIdx++] = re;
+                dest.data[destIdx++] = im;
             }
+            kzRowAnchor += kzStride;
         }
+        /* Отзеркалить верхний треугольник вниз. */
         for (int i = 0; i < K.numRows(); i++) {
             for (int j = i + 1; j < K.numRows(); j++) {
                 int ij = 2 * (i * K.numRows() + j);
@@ -95,108 +100,189 @@ public class AcMatrixOps {
                 dest.data[ji + 1] = dest.data[ij + 1];
             }
         }
+        return dest;
     }
 
-    public static void mul(KMatrix K, VectorAc V, CMatrixRMaj dest) {
-        short nonZeroEltQty = V.nzi[0];
-        for (int i = 0, idx = 0; i < K.numRows(); i++) {
-            byte[] kRow = K.data[i];
-            float re = 0;
-            float im = 0;
-            for (int j = 1; j <= nonZeroEltQty; j++) {
-                int vIdx = V.nzi[j];
-                int kIdx = vIdx / 2;
-                int k = kRow[kIdx];
-                if (k == 1) {
-                    re += V.data[vIdx];
-                    im += V.data[vIdx + 1];
-                } else if (k == -1) {
-                    re -= V.data[vIdx];
-                    im -= V.data[vIdx + 1];
-                }
-            }
-            dest.data[idx++] = re;
-            dest.data[idx++] = im;
+    /**
+     * Операция K&#215E. Для эффективности порядок операндов изменен, и фактически вычисляется E<sup>T</sup>&#215K<sup>T</sup>.
+     * @param E    Вектор ЭДС.
+     * @param KT   Транспонированная матрица контуров K<sup>T</sup>.
+     * @param dest Вектор для сохранения результата. Если <code>dest == null</code>, он будет создан.
+     * @return <code>dest</code>.
+     */
+    @NotNull
+    public static DynamicComplexArray mult(
+            @NotNull VectorAc E,
+            @NotNull IMatrixCsr KT,
+            @Nullable DynamicComplexArray dest
+    ) {
+        if (dest == null) {
+            dest = new DynamicComplexArray(KT.numCols());
+            dest.setSize(KT.numCols());
+        } else {
+            dest.setSize(KT.numCols());
+            Arrays.fill(dest.getDataRe(), 0, dest.getSize(), 0);
+            Arrays.fill(dest.getDataIm(), 0, dest.getSize(), 0);
         }
+        double[] destRes = dest.getDataRe();
+        double[] destIms = dest.getDataIm();
+        for (int i = 0; i < E.nzi.getSize(); i++) {
+            int r = E.nzi.get(i);
+            double re = E.data.getRe(r);
+            double im = E.data.getIm(r);
+            for (int j = KT.begin(r); j < KT.end(r); j++) {
+                int colIdx = KT.cols.get(j);
+                int k = KT.data.get(j);
+                destRes[colIdx] += k * re;
+                destIms[colIdx] += k * im;
+            }
+        }
+        return dest;
     }
 
-    public static void mul(CMatrixRMaj M, VectorAc V, CMatrixRMaj dest) {
-        for (int idx = 0, anchor = 0;
-             anchor < M.data.length;
-             anchor += V.data.length
-        ) {
-            float re = 0;
-            float im = 0;
-            for (int j = 1; j <= V.nzi[0]; ++j) {
-                int c = V.nzi[j];
-                int i = anchor + c;
-                float mRe = M.data[i];
-                float mIm = M.data[i + 1];
-                float vRe = V.data[c];
-                float vIm = V.data[c + 1];
-                re += (mRe * vRe - mIm * vIm);
-                im += (mRe * vIm + vRe * mIm);
-            }
-            dest.data[idx++] = re;
-            dest.data[idx++] = im;
+    /**
+     * Операция <code>K&#215Z&#215I</code>.
+     * Для эффективности порядок операндов изменен, и фактически вычисляется <code>I<sup>T</sup>&#215Z&#215K<sup>T</sup></code>.
+     * @param I    Вектор задающих токов.
+     * @param Z    Матрица сопротивлений.
+     * @param KT   Транспонированная матрица контуров K<sup>T</sup>.
+     * @param dest Вектор для сохранения результата. Если <code>dest == null</code>, он будет создан.
+     * @return <code>dest</code>.
+     */
+    @NotNull
+    public static DynamicComplexArray mult(
+            @NotNull VectorAc I,
+            @NotNull ZMatrixAc Z,
+            @NotNull IMatrixCsr KT,
+            @Nullable DynamicComplexArray dest
+    ) {
+        if (dest == null) {
+            dest = new DynamicComplexArray(KT.numCols());
+            dest.setSize(KT.numCols());
+        } else {
+            dest.setSize(KT.numCols());
+            Arrays.fill(dest.getDataRe(), 0, KT.numCols(), 0);
+            Arrays.fill(dest.getDataIm(), 0, KT.numCols(), 0);
         }
+        double[] destRes = dest.getDataRe();
+        double[] destIms = dest.getDataIm();
+        for (int i = 0; i < I.nzi.getSize(); i++) {
+            int r = I.nzi.get(i);
+            double iRe = I.data.getRe(r);
+            double iIm = I.data.getIm(r);
+            double zRe = Z.data.getRe(r);
+            double zIm = Z.data.getIm(r);
+            double re = iRe * zRe - iIm * zIm;
+            double im = iRe * zIm + iIm * zRe;
+            for (int j = KT.begin(r); j < KT.end(r); j++) {
+                int colIdx = KT.cols.get(j);
+                int k = KT.data.get(j);
+                destRes[colIdx] += k * re;
+                destIms[colIdx] += k * im;
+            }
+        }
+        return dest;
     }
 
-    public static void mul2(CMatrixRMaj M, VectorAc V, CMatrixRMaj dest) {
-        Arrays.fill(dest.data, 0);
-        int maxR = M.numRows * 2;
-        int stride = M.numCols * 2;
-        for (int j = 1; j <= V.nzi[0]; ++j) {
-            int c = V.nzi[j];
-            for (int i = c, r = 0; r < maxR; i += stride, r += 2) {
-                float mRe = M.data[i];
-                float mIm = M.data[i + 1];
-                float vRe = V.data[c];
-                float vIm = V.data[c + 1];
-                dest.data[r] += (mRe * vRe - mIm * vIm);
-                dest.data[r + 1] += (mRe * vIm + vRe * mIm);
-            }
+    /**
+     * Операция <code>KE + KZI</code>.
+     * @param dest Вектор для сохранения результата. Если <code>dest == null</code>, он будет создан.
+     * @return <code>dest</code>.
+     */
+    @NotNull
+    public static ZMatrixRMaj sub(
+            @NotNull DynamicComplexArray KE,
+            @NotNull DynamicComplexArray KZI,
+            @Nullable ZMatrixRMaj dest
+    ) {
+        if (dest == null) {
+            dest = new ZMatrixRMaj(KE.getSize(), 1);
+        } else {
+            dest.reshape(KE.getSize(), 1);
         }
+        for (int i = 0, destIdx = 0; i < KE.getSize(); ++i) {
+            dest.data[destIdx++] = KE.getRe(i) - KZI.getRe(i);
+            dest.data[destIdx++] = KE.getIm(i) - KZI.getIm(i);
+        }
+        return dest;
     }
 
-    public static void mulTransK(KMatrix K, CMatrixRMaj V, CMatrixRMaj dest) {
-        Arrays.fill(dest.data, 0);
-        for (int i = 0; i < K.numRows(); i++) {
-            int vIdx = i * 2;
-            float re = V.data[vIdx];
-            float im = V.data[vIdx + 1];
-            byte[] kRow = K.data[i];
-            short[] nzis = K.nzi[i];
-            for (int j = 1; j <= nzis[0]; j++) {
-                int kIdx = nzis[j];
-                int k = kRow[kIdx];
-                int destIdx = kIdx * 2;
-                if (k == 1) {
-                    dest.data[destIdx] += re;
-                    dest.data[destIdx + 1] += im;
-                } else if (k == -1) {
-                    dest.data[destIdx] -= re;
-                    dest.data[destIdx + 1] -= im;
-                }
-            }
+    /**
+     * Операция <code>K<sup>T</sup>&#215I<sub>cc</sub></code>
+     * @param KT   Транспонированная матрица независимых контуров.
+     * @param Icc  Вектор контурных токов.
+     * @param dest Вектор для сохранения результата. Если <code>dest == null</code>, он будет создан.
+     * @return <code>dest</code>
+     */
+    @NotNull
+    public static ZMatrixRMaj mult(
+            @NotNull IMatrixCsr KT,
+            @NotNull ZMatrixRMaj Icc,
+            @Nullable ZMatrixRMaj dest
+    ) {
+        if (dest == null) {
+            dest = new ZMatrixRMaj(KT.numRows(), 1);
+        } else {
+            dest.reshape(KT.numRows(), 1);
         }
+        for (int i = 0; i < KT.numRows(); i++) {
+            double re = 0;
+            double im = 0;
+            for (int j = KT.begin(i); j < KT.end(i); j++) {
+                int k = KT.data.get(j);
+                int iccIdx = KT.cols.get(j) * 2;
+                re += k * Icc.data[iccIdx];
+                im += k * Icc.data[iccIdx + 1];
+            }
+            dest.set(i, 0, re, im);
+        }
+        return dest;
     }
 
-    public static void mul(ZMatrixAc Z, CMatrixRMaj V, CMatrixRMaj dest) {
-        for (int i = 0, idx = 0; i < Z.size(); i++) {
-            float re = 0;
-            float im = 0;
-            for (int j = Z.begins[i]; j < Z.ends[i]; j++) {
-                float zRe = Z.res[j];
-                float zIm = Z.ims[j];
-                int vIdx = Z.cols[j] * 2;
-                float vRe = V.data[vIdx];
-                float vIm = V.data[vIdx + 1];
-                re += (zRe * vRe - zIm * vIm);
-                im += (zRe * vIm + zIm * vRe);
-            }
-            dest.data[idx++] = re;
-            dest.data[idx++] = im;
+    /**
+     * Операция <code>Z&#215J</code>
+     * @param Z  Матрица сопротивлений.
+     * @param J  Вектор токов в ребрах.
+     * @param dU Результирующий вектор падений напряжений на ребрах.
+     * @return <code>dU</code>. Если <code>dU == null</code>, он будет создан.
+     */
+    @NotNull
+    public static ZMatrixRMaj mult(
+            @NotNull ZMatrixAc Z,
+            @NotNull ZMatrixRMaj J,
+            @Nullable ZMatrixRMaj dU
+    ) {
+        if (dU == null) {
+            dU = new ZMatrixRMaj(Z.size(), 1);
+        } else {
+            dU.reshape(Z.size(), 1);
         }
+        int duIdx = 0;
+        for (int i = 0, j = 0; i < Z.getBlockEdgesQty(); i++) {
+            double zRe = Z.data.getRe(i);
+            double zIm = Z.data.getIm(i);
+            double jRe = J.data[j++];
+            double jIm = J.data[j++];
+            double re = jRe * zRe - jIm * zIm;
+            double im = jRe * zIm + jIm * zRe;
+            dU.data[duIdx++] = re;
+            dU.data[duIdx++] = im;
+        }
+        for (int i = Z.getBlockEdgesQty(); i < Z.size(); i++) {
+            double re = 0;
+            double im = 0;
+            for (int j = Z.begin(i); j < Z.end(i); j++) {
+                double zRe = Z.data.getRe(j);
+                double zIm = Z.data.getIm(j);
+                int jIdx = Z.cols.get(j) * 2;
+                double jRe = J.data[jIdx];
+                double jIm = J.data[jIdx + 1];
+                re += (jRe * zRe - jIm * zIm);
+                im += (jRe * zIm + jIm * zRe);
+            }
+            dU.data[duIdx++] = re;
+            dU.data[duIdx++] = im;
+        }
+        return dU;
     }
 }

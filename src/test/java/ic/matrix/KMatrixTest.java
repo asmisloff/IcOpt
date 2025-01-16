@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class KMatrixTest {
 
     //@formatter:off
-    byte[][] data = {
+    double[][] data = {
             {  0,  1,  0,  1,  0,  0, -1,  0,  0 },
             {  1,  0,  0, -1,  0,  1,  0,  0,  0 },
             {  1,  0,  0, -1,  0,  1,  0,  1,  0 },
@@ -23,7 +23,7 @@ class KMatrixTest {
 
     @Test
     void constructor() {
-        short[][] expected = {
+        int[][] expected = {
                 { 3, 1, 3, 6, 0, 0, 0, 0, 0, 0 },
                 { 3, 0, 3, 5, 0, 0, 0, 0, 0, 0 },
                 { 4, 0, 3, 5, 7, 0, 0, 0, 0, 0 },
