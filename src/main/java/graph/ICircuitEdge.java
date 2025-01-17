@@ -9,4 +9,8 @@ public interface ICircuitEdge {
     void setSourceNode(ICircuitNode n);
 
     void setTargetNode(ICircuitNode n);
+
+    int getIndex();
+
+    void setIndex(int index);
 }

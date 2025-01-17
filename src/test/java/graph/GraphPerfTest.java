@@ -1,8 +1,7 @@
-import graph.ICircuitNode;
-import graph.ListOfIncidence;
-import graph.SchemaGraph;
-import org.jgrapht.graph.BasicEdge;
+package graph;
+
 import org.jgrapht.graph.Multigraph;
+import org.jgrapht.graph.TestEdge;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -59,7 +58,7 @@ public class GraphPerfTest {
         fillSchemaGraph(n);
         int cnt = 0;
         long t0 = nanoTime();
-        ListOfIncidence<Edge> loi = schemaGraph.loi;
+        ListOfIncidence<Edge> loi = schemaGraph.getLoi();
         for (int r = 0; r < timesToRepeat; r++) {
             for (Vertex v : schemaGraph.getVertices()) {
                 int begin = loi.begin(v.index);
@@ -122,6 +121,5 @@ public class GraphPerfTest {
         }
     }
 
-    private static class Edge extends BasicEdge { }
+    private static class Edge extends TestEdge { }
 }
-

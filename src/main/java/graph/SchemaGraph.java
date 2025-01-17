@@ -7,7 +7,7 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> {
 
     private final List<V> vertices = new ArrayList<>();
     private final List<E> edges = new ArrayList<>();
-    public final ListOfIncidence<E> loi = new ListOfIncidence<>();
+    private final ListOfIncidence<E> loi = new ListOfIncidence<>();
 
     public void addVertex(V v) {
         int idx = vertices.size();
@@ -17,6 +17,7 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> {
     }
 
     public void addEdge(V src, V tgt, E e) {
+        e.setIndex(edges.size());
         edges.add(e);
         e.setSourceNode(src);
         e.setTargetNode(tgt);
@@ -29,7 +30,18 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> {
         loi.clear();
     }
 
+    /** Список всех вершин. */
     public List<V> getVertices() {
         return vertices;
+    }
+
+    /** Список всех ребер. */
+    public List<E> getEdges() {
+        return edges;
+    }
+
+    /** Список инцидентности. */
+    public ListOfIncidence<E> getLoi() {
+        return loi;
     }
 }

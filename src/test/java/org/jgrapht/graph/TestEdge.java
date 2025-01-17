@@ -3,7 +3,9 @@ package org.jgrapht.graph;
 import graph.ICircuitEdge;
 import graph.ICircuitNode;
 
-public class BasicEdge extends DefaultEdge implements ICircuitEdge {
+public class TestEdge extends DefaultEdge implements ICircuitEdge {
+
+    private int index;
 
     @Override
     public ICircuitNode getSourceNode() {
@@ -23,5 +25,15 @@ public class BasicEdge extends DefaultEdge implements ICircuitEdge {
     @Override
     public void setTargetNode(ICircuitNode n) {
         target = n;
+    }
+
+    @Override
+    public int getIndex() {
+        return index;
+    }
+
+    @Override
+    public void setIndex(int index) {
+        this.index = index;
     }
 }

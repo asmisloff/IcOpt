@@ -57,7 +57,7 @@ public class IMatrixCsr {
     }
 
     /** Завершить формирование текущей строки и начать переключиться в режим формирования следующей строки. */
-    void addRow() {
+    public void addRow() {
         rows.append(last(rows));
     }
 

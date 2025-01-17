@@ -2,6 +2,10 @@ package graph;
 
 import java.util.Arrays;
 
+/**
+ * Список инцидентности графа.
+ * @param <E> тип ребра.
+ */
 public class ListOfIncidence<E extends ICircuitEdge> {
 
     private final int stride;
