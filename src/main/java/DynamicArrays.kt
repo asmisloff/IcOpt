@@ -156,3 +156,50 @@ class DynamicComplexArray(dataRe: DoubleArray, dataIm: DoubleArray) {
         System.arraycopy(dataIm, 0, dest.dataIm, 0, size)
     }
 }
+
+class DynamicArray<T>(data: Array<T>) {
+
+    @Suppress("UNCHECKED_CAST")
+    constructor(capacity: Int) : this(Array<Any?>(capacity) { null } as Array<T>) {
+        size = 0
+    }
+
+    var capacity: Int = data.size; private set
+    var data = data; private set
+    var size = data.size
+        set(value) {
+            ensureCapacity(value)
+            field = value
+        }
+
+    fun ensureCapacity(capacity: Int) {
+        if (capacity > this.capacity) {
+            val buffer = data
+            this.capacity = capacity
+            @Suppress("UNCHECKED_CAST")
+            data = Array<Any?>(capacity) { null } as Array<T>
+            System.arraycopy(buffer, 0, data, 0, buffer.size)
+        }
+    }
+
+    fun append(value: T) {
+        if (size == capacity) {
+            ensureCapacity((capacity * 3 / 2).coerceAtLeast(16))
+        }
+        data[size] = value
+        size += 1
+    }
+
+    fun get(index: Int): T {
+        return data[index]
+    }
+
+    fun set(index: Int, value: T) {
+        data[index] = value
+    }
+
+    fun copyTo(dest: DynamicIntArray) {
+        dest.size = this.size
+        System.arraycopy(data, 0, dest.data, 0, size)
+    }
+}

@@ -286,6 +286,7 @@ public class CycleBasisTestDataProvider {
             SchemaGraph<V, E> g = new SchemaGraph<>();
             String[] lines = dot.split("\n");
             Map<Integer, V> vertices = new TreeMap<>();
+            Map<V, Integer> degrees = new HashMap<>();
             Queue<E> edges = new PriorityQueue<>(Comparator.comparingInt(ICircuitEdge::getIndex));
             for (int i = 1; i < lines.length - 1; i++) {
                 Matcher m = dotEdgeRe.matcher(lines[i]);
@@ -296,18 +297,23 @@ public class CycleBasisTestDataProvider {
                     V tgt = m.group(2) != null && m.group(3) != null
                             ? vertices.computeIfAbsent(Integer.parseInt(m.group(3)), index -> vertexSupplier.get())
                             : null;
-                    if (m.group(4) != null && m.group(5) != null) {
+                    if (src != null && tgt != null && m.group(4) != null && m.group(5) != null) {
                         E e = edgeSupplier.get();
                         e.setSourceNode(src);
                         e.setTargetNode(tgt);
                         e.setIndex(Integer.parseInt(m.group(5)));
                         edges.add(e);
+                        degrees.put(src, degrees.getOrDefault(src, 0) + 1);
+                        degrees.put(tgt, degrees.getOrDefault(tgt, 0) + 1);
                     }
                 }
             }
             vertices.entrySet().stream()
                     .sorted(Comparator.comparingInt(entry -> entry.getValue().getIndex()))
-                    .forEach(entry -> g.addVertex(entry.getValue()));
+                    .forEach(entry -> {
+                        V v = entry.getValue();
+                        g.addVertex(v, degrees.getOrDefault(v, 0));
+                    });
             edges.forEach(e -> g.addEdge((V) e.getSourceNode(), (V) e.getTargetNode(), e));
             return g;
         }

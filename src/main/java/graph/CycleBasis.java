@@ -16,71 +16,84 @@ import java.util.List;
 public class CycleBasis {
 
     private SchemaGraph<?, ?> graph;
-    private ICircuitEdge[] spanningTree;
+    private ICircuitEdge[] spanningForest;
     private final ArrayDeque<ICircuitNode> deque;
     private final DynamicIntArray tmpv;
     private final DynamicIntArray tmpe;
     private final ArrayList<ICircuitEdge> left = new ArrayList<>(16);
     private final ArrayList<ICircuitEdge> right = new ArrayList<>(16);
-    private final Traversing traversing;
     private int mark;
+    private Traversing traversing = Traversing.QUEUE_BASED;
 
-    /**
-     * @param graph      граф.
-     * @param traversing способ обхода графа.
-     */
-    public CycleBasis(SchemaGraph<?, ?> graph, Traversing traversing) {
+    public CycleBasis(SchemaGraph<?, ?> graph) {
         this.graph = graph;
-        spanningTree = new ICircuitEdge[graph.getVertices().size()];
+        spanningForest = new ICircuitEdge[graph.getVertices().size()];
         deque = new ArrayDeque<>();
         tmpv = new DynamicIntArray(graph.getVertices().size());
         tmpe = new DynamicIntArray(graph.getEdges().size());
         tmpv.setSize(tmpv.getCapacity());
         tmpe.setSize(tmpe.getCapacity());
         mark = 0;
-        this.traversing = traversing;
     }
 
+    /** Назначить граф для обработки. */
     public void setGraph(SchemaGraph<?, ?> graph) {
         this.graph = graph;
     }
 
-    /** Найти циклы и сохранить в матрицу независимых контуров <code>dest</code>. */
+    /**
+     * Найти базисные циклы и сохранить в форме матрицы независимых контуров.
+     * @param dest       матрица независимых контуров. Если <code>dest == null</code>, она будет создана.
+     * @param traversing способ обхода графа. В зависимости от значения этого аргумента будут получаться разные
+     *                   циклы. Априорно следует ожидать, что <code>QUEUE_BASED</code> приведет к более коротким циклам.
+     *                   См. "Narsingh Deo, G. Prabhu, and M. S. Krishnamoorthy. Algorithms for Generating Fundamental Cycles in a Graph."
+     * @return <code>dest</code>.
+     * @implNote Основные алгоритмические решения заимствованы из
+     * <a href="https://jgrapht.org/javadoc-SNAPSHOT/org.jgrapht.core/org/jgrapht/alg/cycle/AbstractFundamentalCycleBasis.html">
+     * org.jgrapht.alg.cycle.AbstractFundamentalCycleBasis
+     * </a>.
+     */
     @NotNull
-    public IMatrixCsr getCycles(@Nullable IMatrixCsr dest) {
-        reset();
-        if (dest == null) {
-            dest = new IMatrixCsr(tmpe.getSize());
-        } else {
-            dest.reset(tmpe.getSize());
-        }
+    public IMatrixCsr getCycles(@Nullable IMatrixCsr dest, Traversing traversing) {
+        reset(traversing);
+        dest = resetOrCreate(dest);
         for (int i = 0; i < graph.getVertices().size(); ++i) {
-            if (spanningTree[i] == null) {
-                spanningTree[i] = NONE;
+            if (spanningForest[i] == null) {
+                spanningForest[i] = NONE;
                 push(graph.getVertices().get(i));
             }
             while (!deque.isEmpty()) {
                 ICircuitNode v = pop();
                 int vi = v.getIndex();
-                ICircuitEdge ve = spanningTree[vi];
+                ICircuitEdge ve = spanningForest[vi];
                 int begin = graph.getLoi().begin(vi);
-                int end = begin + graph.getLoi().degree(vi);
+                int end = graph.getLoi().end(vi);
                 for (int j = begin; j < end; j++) {
                     ICircuitEdge e = graph.getLoi().get(j);
                     if (e != ve) {
                         ICircuitNode ov = oppositeVertex(v, e);
                         int ovi = ov.getIndex();
-                        if (spanningTree[ovi] == null) {
-                            spanningTree[ovi] = e;
-                            deque.addLast(ov);
+                        if (spanningForest[ovi] == null) {
+                            spanningForest[ovi] = e;
+                            push(ov);
                         } else if (tmpe.get(e.getIndex()) == 0) {
                             tmpe.set(e.getIndex(), 1);
-                            ICircuitEdge el = spanningTree[ovi];
+                            ICircuitEdge el = spanningForest[ovi];
                             makePath(ovi, el, e, dest);
                         }
                     }
                 }
             }
+        }
+        return dest;
+    }
+
+    @NotNull
+    private IMatrixCsr resetOrCreate(@Nullable IMatrixCsr dest) {
+        if (dest == null) {
+            dest = new IMatrixCsr(tmpe.getSize());
+        } else {
+            dest.reset(tmpe.getSize());
         }
         return dest;
     }
@@ -93,13 +106,13 @@ public class CycleBasis {
         return (traversing == Traversing.QUEUE_BASED) ? deque.pollFirst() : deque.pollLast();
     }
 
-    private void reset() {
+    private void reset(Traversing traversing) {
         int vCnt = graph.getVertices().size();
         int eCnt = graph.getEdges().size();
-        if (spanningTree.length < vCnt) {
-            spanningTree = new ICircuitEdge[vCnt];
+        if (spanningForest.length < vCnt) {
+            spanningForest = new ICircuitEdge[vCnt];
         } else {
-            Arrays.fill(spanningTree, 0, vCnt, null);
+            Arrays.fill(spanningForest, 0, vCnt, null);
         }
         tmpv.setSize(vCnt);
         tmpe.setSize(eCnt);
@@ -107,6 +120,7 @@ public class CycleBasis {
         Arrays.fill(tmpe.getData(), 0, eCnt, 0);
         deque.clear();
         mark = 0;
+        this.traversing = traversing;
     }
 
     private void makePath(int rootIdx, ICircuitEdge el, ICircuitEdge er, IMatrixCsr dest) {
@@ -127,7 +141,7 @@ public class CycleBasis {
                     trimToVertex(right, vl);
                     break;
                 }
-                el = spanningTree[vl.getIndex()];
+                el = spanningForest[vl.getIndex()];
             }
             if (er != NONE) {
                 right.add(er);
@@ -139,7 +153,7 @@ public class CycleBasis {
                     trimToVertex(left, vr);
                     break;
                 }
-                er = spanningTree[vr.getIndex()];
+                er = spanningForest[vr.getIndex()];
             }
         }
         dest.addRow();

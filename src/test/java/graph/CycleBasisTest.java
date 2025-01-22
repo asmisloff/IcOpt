@@ -19,21 +19,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CycleBasisTest {
 
-    private final CycleBasisTestDataProvider td = new CycleBasisTestDataProvider();
+    private static final CycleBasisTestDataProvider td = new CycleBasisTestDataProvider();
+    private final CycleBasis.Traversing traversing = CycleBasis.Traversing.QUEUE_BASED;
+    private final CycleBasis basis = new CycleBasis(td.case1().graph);
+    private IMatrixCsr K = null;
+    private static final int timesToRepeat = 200_000;
 
     @ParameterizedTest
     @MethodSource("getCyclesTestData")
     void getCycles(CycleBasisTestDataProvider.DataSet ds) {
-        int timesToRepeat = 200_000;
-        CycleBasis.Traversing traversing = CycleBasis.Traversing.QUEUE_BASED;
-        CycleBasis basis = new CycleBasis(ds.graph, traversing);
-        IMatrixCsr K = new IMatrixCsr(ds.graph.getEdges().size());
+        basis.setGraph(ds.graph);
         measureTimeMs("ref", timesToRepeat, () -> ds.computeRefCycles(traversing));
         measureTimeMs("act", timesToRepeat, () -> {
             basis.setGraph(ds.graph);
-            basis.getCycles(K);
+            K = basis.getCycles(K, traversing);
         });
-        int[][] cycles = to2dArray(basis.getCycles(K));
+        int[][] cycles = to2dArray(basis.getCycles(K, traversing));
         printCycles(cycles);
         assertCyclesEqual(ds.computeRefCycles(traversing), cycles);
     }
@@ -66,7 +67,7 @@ class CycleBasisTest {
                 .collect(Collectors.toSet());
         for (int i = 0; i < actual.length; i++) {
             Set<Integer> indices = Arrays.stream(actual[i]).boxed().collect(Collectors.toSet());
-            /* Циклы могут отличаться направлениями обхода. Их нужно считать одинаковыми. */
+            /* Циклы могут отличаться только направлениями обхода. Тогда все знаки будут противоположны. */
             Set<Integer> negatedIndices = indices.stream().map(x -> -x).collect(Collectors.toSet());
             System.out.printf("%d: %s\n", i, indices.stream().map(this::restoreIndex).toList());
             assertTrue(_expected.contains(indices) || _expected.contains(negatedIndices));

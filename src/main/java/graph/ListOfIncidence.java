@@ -1,6 +1,7 @@
 package graph;
 
-import java.util.Arrays;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicArray;
+import ru.vniizht.asuterkortes.counter.latticemodel.DynamicIntArray;
 
 /**
  * Список инцидентности графа.
@@ -8,57 +9,77 @@ import java.util.Arrays;
  */
 public class ListOfIncidence<E extends ICircuitEdge> {
 
-    private final int stride;
-    private int[] degrees;
-    private ICircuitEdge[] incidenceList;
+    private final DynamicIntArray begins;
+    private final DynamicIntArray ends;
+    private final DynamicArray<E> edges;
+    private static final int MEM_RES = 2;
 
     public ListOfIncidence(int stride, int initialCapacity) {
-        this.stride = stride;
-        degrees = new int[initialCapacity];
-        incidenceList = new ICircuitEdge[initialCapacity * stride];
+        begins = new DynamicIntArray(initialCapacity);
+        ends = new DynamicIntArray(initialCapacity);
+        edges = new DynamicArray<>(initialCapacity * stride);
     }
 
     public ListOfIncidence() {
         this(10, 40);
     }
 
-    public int begin(int vertexIdx) {
-        return vertexIdx * stride;
+    /**
+     * Выделить память для хранения данных о новой вершине.
+     * @param degree степень новой вершины.
+     * @implNote память будет выделена с запасом на случай присоединения в будущем к этой вершине ребер тяговой сети.
+     */
+    public void appendVertex(int degree) {
+        degree += MEM_RES;
+        begins.append(edges.getSize());
+        ends.append(edges.getSize());
+        edges.setSize(edges.getSize() + degree);
     }
 
-    public int degree(int vertexIdx) {
-        return degrees[vertexIdx];
+    /**
+     * Добавить ребро.
+     * @param srcIdx индекс начальной вершины.
+     * @param tgtIdx индекс конечной вершины.
+     * @param e      ребро.
+     */
+    public void addEdge(int srcIdx, int tgtIdx, E e) {
+        addEdge(srcIdx, e);
+        addEdge(tgtIdx, e);
     }
 
-    @SuppressWarnings("unchecked")
-    public E get(int idx) {
-        return (E) incidenceList[idx];
+    /**
+     * @param vIdx индекс вершины.
+     * @return начало диапазона индексов для перебора ребер, инцидентных данной вершине.
+     */
+    public int begin(int vIdx) {
+        return begins.get(vIdx);
     }
 
-    void addEdge(ICircuitNode src, ICircuitNode tgt, E e) {
-        addEdge(src, e);
-        addEdge(tgt, e);
+    /**
+     * @param vIdx индекс вершины.
+     * @return конец диапазона индексов (т.е., индекс, на единицу больший последнего в диапазоне) для перебора ребер,
+     * инцидентных данной вершине.
+     */
+    public int end(int vIdx) {
+        return ends.get(vIdx);
     }
 
+    /**
+     * Ребро по внутреннему индексу.
+     * @apiNote внутренние индексы возвращают методы <code>begin</code> и <code>end</code>.
+     */
+    public E get(int internalIndex) {
+        return edges.get(internalIndex);
+    }
+
+    /** Обнулить состояние перед повторным использованием. */
     void clear() {
-        Arrays.fill(degrees, 0);
+        begins.setSize(0);
+        ends.setSize(0);
+        edges.setSize(0);
     }
 
-    private void addEdge(ICircuitNode v, E e) {
-        int i = v.getIndex();
-        int d = degree(i);
-        incidenceList[begin(i) + d] = e;
-        degrees[i] = ++d;
-    }
-
-    void ensureCapacity(int vertexIdx) {
-        if (degrees.length < vertexIdx) {
-            int[] _degrees = new int[degrees.length * 3 / 2];
-            System.arraycopy(degrees, 0, _degrees, 0, degrees.length);
-            degrees = _degrees;
-            ICircuitEdge[] _incidenceList = new ICircuitEdge[_degrees.length * stride];
-            System.arraycopy(incidenceList, 0, _incidenceList, 0, incidenceList.length);
-            incidenceList = _incidenceList;
-        }
+    private void addEdge(int vIdx, E e) {
+        edges.set(ends.getData()[vIdx]++, e);
     }
 }

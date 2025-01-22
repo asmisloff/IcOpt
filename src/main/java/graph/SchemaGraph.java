@@ -9,19 +9,30 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> {
     private final List<E> edges = new ArrayList<>();
     private final ListOfIncidence<E> loi = new ListOfIncidence<>();
 
-    public void addVertex(V v) {
+    /**
+     * Добавить вершину.
+     * @param v      вершина.
+     * @param degree степень вершины.
+     */
+    public void addVertex(V v, int degree) {
         int idx = vertices.size();
         v.setIndex(idx);
         vertices.add(v);
-        loi.ensureCapacity(idx);
+        loi.appendVertex(degree);
     }
 
+    /**
+     * Добавить ребро.
+     * @param src начальная вершина.
+     * @param tgt конечная вершина.
+     * @param e   ребро.
+     */
     public void addEdge(V src, V tgt, E e) {
         e.setIndex(edges.size());
         edges.add(e);
         e.setSourceNode(src);
         e.setTargetNode(tgt);
-        loi.addEdge(src, tgt, e);
+        loi.addEdge(src.getIndex(), tgt.getIndex(), e);
     }
 
     public void clear() {

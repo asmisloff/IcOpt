@@ -62,7 +62,7 @@ public class GraphPerfTest {
         for (int r = 0; r < timesToRepeat; r++) {
             for (Vertex v : schemaGraph.getVertices()) {
                 int begin = loi.begin(v.index);
-                int end = begin + loi.degree(v.index);
+                int end = loi.end(v.index);
                 for (int i = begin; i < end; i++) {
                     Edge e = loi.get(i);
                     if (e.getSourceNode() != v && e.getTargetNode() != v) {
@@ -95,7 +95,7 @@ public class GraphPerfTest {
     private void fillSchemaGraph(int n) {
         for (int i = 0; i < n; i++) {
             Vertex v = new Vertex(i);
-            schemaGraph.addVertex(v);
+            schemaGraph.addVertex(v, 2);
         }
         List<Vertex> vertices = schemaGraph.getVertices();
         for (int i = 0; i < vertices.size() - 1; ++i) {
