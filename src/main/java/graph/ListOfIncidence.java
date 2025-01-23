@@ -3,6 +3,8 @@ package graph;
 import ru.vniizht.asuterkortes.counter.latticemodel.DynamicArray;
 import ru.vniizht.asuterkortes.counter.latticemodel.DynamicIntArray;
 
+import java.util.Iterator;
+
 /**
  * Список инцидентности графа.
  * @param <E> тип ребра.
@@ -70,6 +72,11 @@ public class ListOfIncidence<E extends ICircuitEdge> {
      */
     public E get(int internalIndex) {
         return edges.get(internalIndex);
+    }
+
+    /** Итератор по ребрам, инцидентным узлу с индексом <code>vIdx</code>. */
+    public Iterator<E> edgeIterator(int vIdx) {
+        return edges.iterator(begin(vIdx), end(vIdx));
     }
 
     /** Обнулить состояние перед повторным использованием. */

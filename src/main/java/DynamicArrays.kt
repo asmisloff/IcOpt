@@ -202,4 +202,25 @@ class DynamicArray<T>(data: Array<T>) {
         dest.size = this.size
         System.arraycopy(data, 0, dest.data, 0, size)
     }
+
+    fun iterator(begin: Int, end: Int): Iterator<T> {
+        return DynamicArrayIterator(begin, end)
+    }
+
+    private inner class DynamicArrayIterator<T>(private var begin: Int, private val end: Int) : Iterator<T> {
+
+        init {
+            require(begin in 0 until size) { "Неверный индекс begin = $begin" }
+            require(end in begin until data.size) { "Неверный индекс end = $end" }
+        }
+
+        override fun hasNext(): Boolean {
+            return begin < end
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        override fun next(): T {
+            return data[begin++] as T
+        }
+    }
 }

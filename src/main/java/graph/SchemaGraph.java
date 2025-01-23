@@ -1,6 +1,9 @@
 package graph;
 
+import org.jgrapht.graph.Multigraph;
+
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> {
@@ -54,5 +57,38 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> {
     /** Список инцидентности. */
     public ListOfIncidence<E> getLoi() {
         return loi;
+    }
+
+    /**
+     * @param v вершина.
+     * @return итератор по ребрам, инцидентным <code>v</code>.
+     */
+    public Iterator<E> edgesOf(V v) {
+        return loi.edgeIterator(v.getIndex());
+    }
+
+    /** Встроить <code>mg</code> в данный граф. */
+    @SuppressWarnings("unchecked")
+    public void addGraph(Multigraph<V, E> mg) {
+        for (V v : mg.vertexSet()) {
+            addVertex(v, mg.degreeOf(v));
+        }
+        for (E e : mg.edgeSet()) {
+            addEdge((V) e.getSourceNode(), (V) e.getTargetNode(), e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public Multigraph<V, E> toJGraphTMultigraph(Class<E> clazz) {
+        Multigraph<V, E> mg = new Multigraph<>(clazz);
+        for (V v : vertices) {
+            mg.addVertex(v);
+        }
+        for (E e : edges) {
+            V src = (V) e.getSourceNode();
+            ICircuitNode tgt = e.getTargetNode();
+            mg.addEdge(src, (V) tgt, e);
+        }
+        return mg;
     }
 }
