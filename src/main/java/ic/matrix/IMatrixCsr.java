@@ -67,7 +67,7 @@ public class IMatrixCsr {
      * кода. Здесь нет проверок.
      */
     public void append(int colIdx, int value) {
-        incLast(rows);
+        incLast(rows, 1);
         cols.append(colIdx);
         data.append(value);
     }
@@ -96,13 +96,13 @@ public class IMatrixCsr {
     }
 
     /** Последний элемент массива. */
-    private int last(DynamicIntArray arr) {
+    public int last(DynamicIntArray arr) {
         return arr.get(arr.getSize() - 1);
     }
 
-    /** Увеличить последний элемент массива на 1. */
-    private void incLast(DynamicIntArray arr) {
+    /** Увеличить последний элемент массива на <code>amount</code>. */
+    public void incLast(DynamicIntArray arr, int amount) {
         int[] data = arr.getData();
-        ++data[arr.getSize() - 1];
+        data[arr.getSize() - 1] += amount;
     }
 }

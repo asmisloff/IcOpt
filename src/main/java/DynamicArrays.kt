@@ -157,7 +157,7 @@ class DynamicComplexArray(dataRe: DoubleArray, dataIm: DoubleArray) {
     }
 }
 
-class DynamicArray<T>(data: Array<T>) {
+class DynamicArray<T>(data: Array<T>) : List<T> {
 
     @Suppress("UNCHECKED_CAST")
     constructor(capacity: Int) : this(Array<Any?>(capacity) { null } as Array<T>) {
@@ -166,7 +166,7 @@ class DynamicArray<T>(data: Array<T>) {
 
     var capacity: Int = data.size; private set
     var data = data; private set
-    var size = data.size
+    override var size = data.size
         set(value) {
             ensureCapacity(value)
             field = value
@@ -190,12 +190,23 @@ class DynamicArray<T>(data: Array<T>) {
         size += 1
     }
 
-    fun get(index: Int): T {
+    override fun get(index: Int): T {
         return data[index]
     }
 
-    fun set(index: Int, value: T) {
-        data[index] = value
+    override fun indexOf(element: T): Int {
+        for (i in 0 until size) {
+            if (data[i] == element) {
+                return i
+            }
+        }
+        return -1
+    }
+
+    fun set(index: Int, element: T): T {
+        val prev = data[index]
+        data[index] = element
+        return prev
     }
 
     fun copyTo(dest: DynamicIntArray) {
@@ -203,24 +214,99 @@ class DynamicArray<T>(data: Array<T>) {
         System.arraycopy(data, 0, dest.data, 0, size)
     }
 
+    override fun isEmpty(): Boolean {
+        return size == 0
+    }
+
     fun iterator(begin: Int, end: Int): Iterator<T> {
         return DynamicArrayIterator(begin, end)
     }
 
-    private inner class DynamicArrayIterator<T>(private var begin: Int, private val end: Int) : Iterator<T> {
+    override fun iterator(): Iterator<T> {
+        return DynamicArrayIterator(0, size)
+    }
+
+    override fun listIterator(): ListIterator<T> {
+        return DynamicArrayIterator(0, size)
+    }
+
+    override fun listIterator(index: Int): ListIterator<T> {
+        return DynamicArrayIterator(index, size)
+    }
+
+    override fun subList(fromIndex: Int, toIndex: Int): List<T> {
+        val res = ArrayList<T>(toIndex - fromIndex)
+        iterator(fromIndex, toIndex).forEach { res.add(it) }
+        return res
+    }
+
+    override fun lastIndexOf(element: T): Int {
+        for (i in size - 1 downTo 0) {
+            if (data[i] == element) {
+                return i
+            }
+        }
+        return -1
+    }
+
+    override fun containsAll(elements: Collection<T>): Boolean {
+        for (elt in elements) {
+            if (!contains(elt)) {
+                return false
+            }
+        }
+        return true
+    }
+
+    override fun contains(element: T): Boolean {
+        for (i in 0 until size) {
+            if (data[i] == element) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private inner class DynamicArrayIterator<T>(private var begin: Int, private val end: Int) : ListIterator<T> {
+
+        var idx: Int
 
         init {
             require(begin in 0 until size) { "Неверный индекс begin = $begin" }
             require(end in begin until data.size) { "Неверный индекс end = $end" }
+            idx = begin - 1
         }
 
         override fun hasNext(): Boolean {
-            return begin < end
+            return idx < end - 1
+        }
+
+        override fun hasPrevious(): Boolean {
+            return idx > begin
         }
 
         @Suppress("UNCHECKED_CAST")
         override fun next(): T {
-            return data[begin++] as T
+            if (hasNext()) {
+                return data[++idx] as T
+            }
+            throw NoSuchElementException()
+        }
+
+        override fun nextIndex(): Int {
+            return idx + 1
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        override fun previous(): T {
+            if (hasPrevious()) {
+                return data[--idx] as T
+            }
+            throw NoSuchElementException()
+        }
+
+        override fun previousIndex(): Int {
+            return idx - 1
         }
     }
 }
