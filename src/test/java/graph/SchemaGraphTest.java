@@ -1,7 +1,6 @@
 package graph;
 
 import graph.data.SchemaGraphTestDataProvider;
-import org.jgrapht.Graphs;
 import org.jgrapht.graph.Multigraph;
 import org.jgrapht.graph.TestEdge;
 import org.jgrapht.graph.TestVertex;
@@ -37,8 +36,8 @@ class SchemaGraphTest {
         SchemaGraph<TestVertex, TestEdge> actual = td.g6();
         Multigraph<TestVertex, TestEdge> expected = actual.toJGraphTMultigraph(TestEdge.class);
         Multigraph<TestVertex, TestEdge> mgToAdd = td.g7().toJGraphTMultigraph(TestEdge.class);
-        Graphs.addGraph(actual, mgToAdd);
-        Graphs.addGraph(expected, mgToAdd);
+        GraphUtils.addGraph(actual, mgToAdd);
+        GraphUtils.addGraph(expected, mgToAdd);
         assertEquals(expected.vertexSet(), new HashSet<>(actual.getVertices()));
         assertEquals(expected.edgeSet(), new HashSet<>(actual.getEdges()));
         for (TestVertex v : expected.vertexSet()) {
