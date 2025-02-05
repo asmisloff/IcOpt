@@ -110,7 +110,7 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
 
     @Override
     public Set<E> edgeSet() {
-        return new SchemaGraphView<>(edges, 0, edges.size());
+        return new ListSubset<>(edges, 0, edges.size());
     }
 
     @Override
@@ -173,7 +173,7 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
 
     @Override
     public Set<V> vertexSet() {
-        return new SchemaGraphView<>(vertices, 0, vertices.size());
+        return new ListSubset<>(vertices, 0, vertices.size());
     }
 
     @SuppressWarnings("unchecked")

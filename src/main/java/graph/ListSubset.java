@@ -8,13 +8,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-public class SchemaGraphView<T> implements Set<T> {
+/** Представление части списка с интерфейсом множества. */
+class ListSubset<T> implements Set<T> {
 
     private final List<T> list;
     private final int begin;
     private final int end;
 
-    public SchemaGraphView(List<T> list, int begin, int end) {
+    public ListSubset(List<T> list, int begin, int end) {
         this.list = list;
         this.begin = begin;
         this.end = end;

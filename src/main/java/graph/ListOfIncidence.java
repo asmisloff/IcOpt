@@ -3,6 +3,8 @@ package graph;
 import ru.vniizht.asuterkortes.counter.latticemodel.DynamicArray;
 import ru.vniizht.asuterkortes.counter.latticemodel.DynamicIntArray;
 
+import java.util.Set;
+
 /**
  * Список инцидентности графа.
  * @param <E> тип ребра.
@@ -73,8 +75,8 @@ public class ListOfIncidence<E extends ICircuitEdge> {
     }
 
     /** Множество ребер, инцидентных узлу с индексом <code>vIdx</code>. */
-    public SchemaGraphView<E> edgesOf(int vIdx) {
-        return new SchemaGraphView<>(edges, begin(vIdx), end(vIdx));
+    public Set<E> edgesOf(int vIdx) {
+        return new ListSubset<>(edges, begin(vIdx), end(vIdx));
     }
 
     /** Обнулить состояние перед повторным использованием. */
