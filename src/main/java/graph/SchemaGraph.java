@@ -1,6 +1,7 @@
 package graph;
 
 import kotlin.NotImplementedError;
+import org.jetbrains.annotations.NotNull;
 import org.jgrapht.Graph;
 import org.jgrapht.GraphType;
 import org.jgrapht.graph.Multigraph;
@@ -14,16 +15,28 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
     private final List<E> edges;
     private final ListOfIncidence<E> loi;
     private final int defaultDegree;
+    private final V acZeroNode;
 
-    public SchemaGraph() {
-        this(10);
+    private SchemaGraph(int defaultDegree, V acZeroNode) {
+        this.defaultDegree = defaultDegree;
+        this.vertices = new ArrayList<>();
+        this.edges = new ArrayList<>();
+        this.loi = new ListOfIncidence<>();
+        this.acZeroNode = acZeroNode;
     }
 
-    public SchemaGraph(int defaultDegree) {
-        this.defaultDegree = defaultDegree;
-        vertices = new ArrayList<>();
-        edges = new ArrayList<>();
-        loi = new ListOfIncidence<>();
+    /** Граф для схем постоянного тока. */
+    @NotNull
+    public static <V extends ICircuitNode, E extends ICircuitEdge> SchemaGraph<V, E> dc(int defaultDegree) {
+        return new SchemaGraph<>(defaultDegree, null);
+    }
+
+    /** Граф с предварительной настройкой для схем переменного тока. */
+    @NotNull
+    public static <V extends ICircuitNode, E extends ICircuitEdge> SchemaGraph<V, E> ac(int defaultDegree, @NotNull V zeroNode) {
+        SchemaGraph<V, E> g = new SchemaGraph<>(defaultDegree, zeroNode);
+        g.addVertex(g.acZeroNode);
+        return g;
     }
 
     /**
@@ -32,11 +45,14 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
      * @param degree степень вершины.
      */
     public boolean addVertex(V v, int degree) {
+        v = selfOrAcZero(v);
         if (!containsVertex(v)) {
             int idx = vertices.size();
             v.setIndex(idx);
             vertices.add(v);
-            loi.appendVertex(degree);
+            if (idx > 0) {
+                loi.appendVertex(degree);
+            }
             return true;
         }
         return false;
@@ -59,7 +75,7 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
     }
 
     /** Список инцидентности. */
-    public ListOfIncidence<E> getLoi() {
+    ListOfIncidence<E> getLoi() {
         return loi;
     }
 
@@ -79,6 +95,8 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
 
     @Override
     public boolean containsEdge(V sourceVertex, V targetVertex) {
+        sourceVertex = selfOrAcZero(sourceVertex);
+        targetVertex = selfOrAcZero(targetVertex);
         if (!sourceVertex.equals(targetVertex) && containsVertex(sourceVertex) && containsVertex(targetVertex)) {
             for (int i = loi.begin(sourceVertex.getIndex()); i < loi.end(sourceVertex.getIndex()); ++i) {
                 E e = loi.get(i);
@@ -115,6 +133,7 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
 
     @Override
     public int degreeOf(V vertex) {
+        vertex = selfOrAcZero(vertex);
         if (!containsVertex(vertex)) {
             return -1;
         }
@@ -123,6 +142,8 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
 
     @Override
     public Set<E> getAllEdges(V sourceVertex, V targetVertex) {
+        sourceVertex = selfOrAcZero(sourceVertex);
+        targetVertex = selfOrAcZero(targetVertex);
         Set<E> res = new HashSet<>();
         if (!sourceVertex.equals(targetVertex) && containsVertex(sourceVertex) && containsVertex(targetVertex)) {
             for (int i = loi.begin(sourceVertex.getIndex()); i < loi.end(sourceVertex.getIndex()); i++) {
@@ -137,6 +158,8 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
 
     @Override
     public E getEdge(V sourceVertex, V targetVertex) {
+        sourceVertex = selfOrAcZero(sourceVertex);
+        targetVertex = selfOrAcZero(targetVertex);
         if (!sourceVertex.equals(targetVertex) && containsVertex(sourceVertex) && containsVertex(targetVertex)) {
             for (int i = loi.begin(sourceVertex.getIndex()); i < loi.end(sourceVertex.getIndex()); i++) {
                 E e = loi.get(i);
@@ -151,6 +174,8 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
     @Override
     public boolean addEdge(V src, V tgt, E e) {
         if (!containsEdge(e)) {
+            src = selfOrAcZero(src);
+            tgt = selfOrAcZero(tgt);
             e.setIndex(edges.size());
             edges.add(e);
             e.setSourceNode(src);
@@ -168,6 +193,7 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
 
     @Override
     public Set<E> edgesOf(V v) {
+        v = selfOrAcZero(v);
         return loi.edgesOf(v.getIndex());
     }
 
@@ -211,6 +237,10 @@ public class SchemaGraph<V extends ICircuitNode, E extends ICircuitEdge> impleme
     @Override
     public Set<E> outgoingEdgesOf(V vertex) {
         return edgesOf(vertex);
+    }
+
+    private V selfOrAcZero(V v) {
+        return v.equals(acZeroNode) ? acZeroNode : v;
     }
 
     //<editor-fold desc="Неподдерживаемые и ненужные операции">

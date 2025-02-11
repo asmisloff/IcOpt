@@ -3,10 +3,7 @@ package graph;
 import kotlin.NotImplementedError;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /** Представление части списка с интерфейсом множества. */
 class ListSubset<T> implements Set<T> {
@@ -44,7 +41,7 @@ class ListSubset<T> implements Set<T> {
     @NotNull
     @Override
     public Iterator<T> iterator() {
-        return list.subList(begin, end).iterator();
+        return new ListSubsetIterator();
     }
 
     @NotNull
@@ -101,5 +98,22 @@ class ListSubset<T> implements Set<T> {
     @Override
     public void clear() {
         throw new NotImplementedError("Не поддерживается");
+    }
+
+    private class ListSubsetIterator implements Iterator<T> {
+
+        private int idx = begin;
+
+        @Override
+        public boolean hasNext() {
+            return idx < end;
+        }
+
+        public T next() {
+            if (hasNext()) {
+                return list.get(idx++);
+            }
+            throw new NoSuchElementException();
+        }
     }
 }

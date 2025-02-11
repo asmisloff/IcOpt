@@ -4,9 +4,9 @@ import graph.data.SchemaGraphTestDataProvider;
 import org.jgrapht.graph.Multigraph;
 import org.jgrapht.graph.TestEdge;
 import org.jgrapht.graph.TestVertex;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.HashSet;
@@ -31,18 +31,19 @@ class SchemaGraphTest {
         }
     }
 
-    @Test
-    void addGraph() {
-        SchemaGraph<TestVertex, TestEdge> actual = td.g6();
-        Multigraph<TestVertex, TestEdge> expected = actual.toJGraphTMultigraph(TestEdge.class);
-        Multigraph<TestVertex, TestEdge> mgToAdd = td.g7().toJGraphTMultigraph(TestEdge.class);
-        GraphUtils.addGraph(actual, mgToAdd);
-        GraphUtils.addGraph(expected, mgToAdd);
-        assertEquals(expected.vertexSet(), new HashSet<>(actual.getVertices()));
-        assertEquals(expected.edgeSet(), new HashSet<>(actual.getEdges()));
+    @ParameterizedTest
+    @MethodSource("addGraphTestData")
+    void addGraph(SchemaGraph<TestVertex, TestEdge> dest, SchemaGraph<TestVertex, TestEdge> src) {
+        Multigraph<TestVertex, TestEdge> expected = dest.toJGraphTMultigraph(TestEdge.class);
+        Multigraph<TestVertex, TestEdge> mgSrc = src.toJGraphTMultigraph(TestEdge.class);
+        GraphUtils.addGraph(dest, mgSrc);
+        GraphUtils.addGraph(expected, mgSrc);
+        assertEquals(expected.vertexSet(), new HashSet<>(dest.getVertices()));
+        assertEquals(expected.edgeSet(), new HashSet<>(dest.getEdges()));
         for (TestVertex v : expected.vertexSet()) {
-            assertEquals(expected.edgesOf(v), actual.edgesOf(v));
+            assertEquals(expected.edgesOf(v), dest.edgesOf(v));
         }
+        System.out.println(GraphUtils.toDot(dest));
     }
 
     @ParameterizedTest
@@ -143,5 +144,12 @@ class SchemaGraphTest {
 
     private Stream<SchemaGraph<TestVertex, TestEdge>> testData() {
         return Stream.of(td.g1(), td.g2(), td.g3(), td.g4(), td.g5(), td.g6(), td.g7());
+    }
+
+    private Stream<Arguments> addGraphTestData() {
+        return Stream.of(
+                Arguments.of(td.g6(), td.g7()), // dc
+                Arguments.of(td.g8(), td.g8()) // ac
+        );
     }
 }

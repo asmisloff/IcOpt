@@ -4,10 +4,12 @@ import graph.ICircuitEdge;
 import graph.ICircuitNode;
 import graph.SchemaGraph;
 import org.jetbrains.annotations.NotNull;
+import org.jgrapht.graph.TestAcNode;
 import org.jgrapht.graph.TestEdge;
 import org.jgrapht.graph.TestVertex;
 
 import java.util.*;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -222,24 +224,47 @@ public class SchemaGraphTestDataProvider {
                                """);
     }
 
+    public SchemaGraph<TestVertex, TestEdge> g8() {
+        return fromDot("""
+                               digraph G {
+                                 1 -> 2 [ label="0" ]
+                                 2 -> 3 [ label="1" ]
+                                 1 -> 0 [ label="2" ]
+                                 4 -> 0 [ label="3" ]
+                                 4 -> 3 [ label="4" ]
+                               }
+                               """, true);
+    }
+
+    @NotNull
+    private static <V extends ICircuitNode, E extends ICircuitEdge>
+    SchemaGraph<V, E> fromDot(@NotNull String dot) {
+        return fromDot(dot, false);
+    }
+
     @SuppressWarnings("unchecked")
     @NotNull
-    private static <V extends ICircuitNode, E extends ICircuitEdge> SchemaGraph<V, E> fromDot(@NotNull String dot) {
-        SchemaGraph<V, E> g = new SchemaGraph<>();
+    private static <V extends ICircuitNode, E extends ICircuitEdge>
+    SchemaGraph<V, E> fromDot(@NotNull String dot, boolean ac) {
+        SchemaGraph<V, E> g = ac
+                ? SchemaGraph.ac(10, (V) new TestAcNode(-1, 0))
+                : SchemaGraph.dc(10);
         String[] lines = dot.split("\n");
         Map<Integer, V> vertices = new TreeMap<>();
         Map<V, Integer> degrees = new HashMap<>();
         Queue<E> edges = new PriorityQueue<>(Comparator.comparingInt(ICircuitEdge::getIndex));
-        Supplier<V> vertexSupplier = () -> (V) new TestVertex(-1);
+        IntFunction<V> vertexSupplier = (int index) -> ac
+                ? (V) new TestAcNode(index, index)
+                : (V) new TestVertex(index, index);
         Supplier<E> edgeSupplier = () -> (E) new TestEdge();
         for (int i = 1; i < lines.length - 1; i++) {
             Matcher m = dotEdgeRe.matcher(lines[i]);
             if (m.find()) {
                 V src = m.group(1) != null
-                        ? vertices.computeIfAbsent(Integer.parseInt(m.group(1)), index -> vertexSupplier.get())
+                        ? vertices.computeIfAbsent(Integer.parseInt(m.group(1)), vertexSupplier::apply)
                         : null;
                 V tgt = m.group(2) != null && m.group(3) != null
-                        ? vertices.computeIfAbsent(Integer.parseInt(m.group(3)), index -> vertexSupplier.get())
+                        ? vertices.computeIfAbsent(Integer.parseInt(m.group(3)), vertexSupplier::apply)
                         : null;
                 if (src != null && tgt != null && m.group(4) != null && m.group(5) != null) {
                     E e = edgeSupplier.get();

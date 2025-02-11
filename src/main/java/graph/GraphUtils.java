@@ -22,15 +22,17 @@ public class GraphUtils {
     @SuppressWarnings("unchecked")
     public static <V extends ICircuitNode, E extends ICircuitEdge>
     void addGraph(Graph<V, E> dest, Graph<V, E> src) {
-        if (dest instanceof SchemaGraph<V, E> schemaGraph) {
-            for (V v : src.vertexSet()) {
-                schemaGraph.addVertex(v, src.degreeOf(v));
+        if (dest != src) {
+            if (dest instanceof SchemaGraph<V, E> schemaGraph) {
+                for (V v : src.vertexSet()) {
+                    schemaGraph.addVertex(v, src.degreeOf(v));
+                }
+                for (E e : src.edgeSet()) {
+                    schemaGraph.addEdge((V) e.getSourceNode(), (V) e.getTargetNode(), e);
+                }
+            } else {
+                Graphs.addGraph(dest, src);
             }
-            for (E e : src.edgeSet()) {
-                schemaGraph.addEdge((V) e.getSourceNode(), (V) e.getTargetNode(), e);
-            }
-        } else {
-            Graphs.addGraph(dest, src);
         }
     }
 
@@ -41,5 +43,21 @@ public class GraphUtils {
             return (CycleBasis<V, E, G>) new SchemaGraphCycleBasis<V, E>((SchemaGraph<?, ?>) graph);
         }
         return (CycleBasis<V, E, G>) new JGraphTCycleBasis<>(graph);
+    }
+
+    public static <V extends ICircuitNode, E extends ICircuitEdge>
+    String toDot(Graph<V, E> graph) {
+        StringBuilder sb = new StringBuilder("digraph G {\n");
+        for (E e : graph.edgeSet()) {
+            sb.append(' ').append(' ')
+                    .append(e.getSourceNode().getIndex())
+                    .append(" -> ")
+                    .append(e.getTargetNode().getIndex())
+                    .append(" [ label=\"")
+                    .append(e.getIndex())
+                    .append("\" ]\n");
+        }
+        sb.append('}');
+        return sb.toString();
     }
 }

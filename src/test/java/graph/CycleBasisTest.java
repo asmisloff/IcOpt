@@ -23,8 +23,8 @@ class CycleBasisTest {
 
     private static final SchemaGraphTestDataProvider td = new SchemaGraphTestDataProvider();
     private final CycleBasis.Traversing traversing = SchemaGraphCycleBasis.Traversing.QUEUE_BASED;
-    private final CycleBasis<TestVertex, TestEdge, SchemaGraph<TestVertex, TestEdge>> basis = new SchemaGraphCycleBasis<>(td.g1());
-    private final CycleBasis<TestVertex, TestEdge, Graph<TestVertex, TestEdge>> refBasis = new JGraphTCycleBasis<>(td.g7().toJGraphTMultigraph(TestEdge.class));
+    private final CycleBasis<TestVertex, TestEdge, SchemaGraph<TestVertex, TestEdge>> basis = GraphUtils.cycleBasis(td.g1());
+    private final CycleBasis<TestVertex, TestEdge, Graph<TestVertex, TestEdge>> refBasis = GraphUtils.cycleBasis(td.g7().toJGraphTMultigraph(TestEdge.class));
     private IMatrixCsr K = null;
     private IMatrixCsr refK = null;
     private static final int timesToRepeat = 200_000;
